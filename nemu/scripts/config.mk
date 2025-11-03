@@ -21,28 +21,45 @@ $(warning $(COLOR_RED)Warning: .config does not exists!$(COLOR_END))
 $(warning $(COLOR_RED)To build the project, first run 'make menuconfig'.$(COLOR_END))
 endif
 
+# `@`让命令静默执行, quiet
 Q            := @
+# Kconfig(程序)的路径
 KCONFIG_PATH := $(NEMU_HOME)/tools/kconfig
+# fixdep工具的路径
 FIXDEP_PATH  := $(NEMU_HOME)/tools/fixdep
+# Kconfig文件(配置描述文件)的路径.
 Kconfig      := $(NEMU_HOME)/Kconfig
+# 扩展变量rm-distclean, 清理更多文件.
 rm-distclean += include/generated include/config .config .config.old
 silent := -s
 
+
 CONF   := $(KCONFIG_PATH)/build/conf
+
 MCONF  := $(KCONFIG_PATH)/build/mconf
+
 FIXDEP := $(FIXDEP_PATH)/build/fixdep
 
+
+# 用来执行`conf --syncconfig Kconfig`, 生成配置.
 $(CONF):
 	$(Q)$(MAKE) $(silent) -C $(KCONFIG_PATH) NAME=conf
-
+# 用来执行`mconf Kconfig`, 启动菜单配置界面.
 $(MCONF):
 	$(Q)$(MAKE) $(silent) -C $(KCONFIG_PATH) NAME=mconf
-
+# 用来执行`fixdep`, 修复依赖关系.
 $(FIXDEP):
 	$(Q)$(MAKE) $(silent) -C $(FIXDEP_PATH)
 
+
+# 该目标启动配置.
+# $(MCONF) → 菜单界面程序
+# $(CONF) → 配置同步程序
+# $(FIXDEP) → 依赖关系修复工具
 menuconfig: $(MCONF) $(CONF) $(FIXDEP)
+# 执行命令`mconf nemu/Kconfig`, 启动菜单配置界面
 	$(Q)$(MCONF) $(Kconfig)
+# 同步配置
 	$(Q)$(CONF) $(silent) --syncconfig $(Kconfig)
 
 savedefconfig: $(CONF)
