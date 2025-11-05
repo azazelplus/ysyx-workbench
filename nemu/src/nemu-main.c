@@ -22,6 +22,7 @@ int is_exit_status_bad();
 
 int main(int argc, char *argv[]) {
   /* Initialize the monitor. */
+  // AM refers to: Abstract Machine. 当NEMU作为模拟机后端的时候使用.
 #ifdef CONFIG_TARGET_AM
   am_init_monitor();
 #else
