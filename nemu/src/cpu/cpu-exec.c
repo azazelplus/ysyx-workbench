@@ -27,7 +27,7 @@
 
 CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
-static uint64_t g_timer = 0; // unit: us
+static uint64_t g_timer = 0; // unit: us. total time spent in cpu_exec().
 static bool g_print_step = false;
 
 void device_update();
@@ -96,9 +96,12 @@ void assert_fail_msg() {
   statistic();
 }
 
+
 /* Simulate how the CPU works. */
+//执行n条指令. 其实就是包装了一下execute(m)函数, 增加了计时和nemu状态机管理.
 void cpu_exec(uint64_t n) {
-  g_print_step = (n < MAX_INST_TO_PRINT);
+  g_print_step = (n < MAX_INST_TO_PRINT); //打印控制. 若n<10, 打开单步打印模式(打印每一条的反汇编结果)
+  //检查当前模拟器状态机状态. 如果是NEMU_END和NEMU_ABORT, 则提示用户需要重启模拟器. 否则将状态机状态设置为NEMU_RUNNING
   switch (nemu_state.state) {
     case NEMU_END: case NEMU_ABORT:
       printf("Program execution has ended. To restart the program, exit NEMU and run again.\n");
@@ -106,16 +109,22 @@ void cpu_exec(uint64_t n) {
     default: nemu_state.state = NEMU_RUNNING;
   }
 
+  //计时开始.
   uint64_t timer_start = get_time();
 
+  //核心. 执行n条指令
   execute(n);
 
+  //计算总时长g_timer
   uint64_t timer_end = get_time();
   g_timer += timer_end - timer_start;
 
+  //根据运行结果更新状态.
+  //如果程序正常执行了n条指令, 此时state应该是RUNNING; 如果程序中途遇到ebreak, halt, 则此时state是END; 如果程序出错, 则此时state=ABORT; 如果用户主动退出, 则state=QUIT.
   switch (nemu_state.state) {
-    case NEMU_RUNNING: nemu_state.state = NEMU_STOP; break;
+    case NEMU_RUNNING: nemu_state.state = NEMU_STOP; break;//如果还在运行, 则改为END状态.
 
+  //如果是END, ABORT, QUIT状态, 则打印统计信息.
     case NEMU_END: case NEMU_ABORT:
       Log("nemu: %s at pc = " FMT_WORD,
           (nemu_state.state == NEMU_ABORT ? ANSI_FMT("ABORT", ANSI_FG_RED) :

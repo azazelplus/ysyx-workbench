@@ -45,12 +45,18 @@ static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_
   }
 }
 
+//指令解码和执行函数. Decode *s是解码器状态结构体指针, 包含了当前指令的PC和指令本身.
+//s->pc是当前指令的PC, s->snpc是静态下一条指令的PC(PC+4), s->dnpc是动态下一条指令的PC.
 static int decode_exec(Decode *s) {
+//
   int rd = 0;
   word_t src1 = 0, src2 = 0, imm = 0;
   s->dnpc = s->snpc;
 
+//INSTPAT_INST(instruction pattern, 指令模式匹配)宏: 取出当前指令的原始 32 位机器码.
 #define INSTPAT_INST(s) ((s)->isa.inst.val)
+
+//INSTPAT_MATCH宏: 当指令匹配时：调用 decode_operand() 来解析寄存器号与立即数；执行宏体中传入的执行语句（__VA_ARGS__）。
 #define INSTPAT_MATCH(s, name, type, ... /* execute body */ ) { \
   decode_operand(s, &rd, &src1, &src2, &imm, concat(TYPE_, type)); \
   __VA_ARGS__ ; \
@@ -60,8 +66,9 @@ static int decode_exec(Decode *s) {
   INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm);
   INSTPAT("??????? ????? ????? 100 ????? 00000 11", lbu    , I, R(rd) = Mr(src1 + imm, 1));
   INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));
-
+  //
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
+  // 匹配不到任何已知模式时, 调用INV()报错. invalid instruction
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
   INSTPAT_END();
 
@@ -74,3 +81,21 @@ int isa_exec_once(Decode *s) {
   s->isa.inst.val = inst_fetch(&s->snpc, 4);
   return decode_exec(s);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

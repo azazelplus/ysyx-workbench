@@ -18,6 +18,7 @@ include $(NEMU_HOME)/scripts/build.mk
 
 include $(NEMU_HOME)/tools/difftest.mk
 
+#函数git_commit在ysyx-workbench/Makefile中定义. ysyx注入的监视器. 它说别动这个.
 compile_git:
 	$(call git_commit, "compile NEMU")
 $(BINARY):: compile_git
@@ -31,10 +32,14 @@ override ARGS += $(ARGS_DIFF)
 IMG ?=
 NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
 
+# make run的依赖. 包括
 run-env: $(BINARY) $(DIFF_REF_SO)
 
+# 主规则run. 运行NEMU模拟器. 
 run: run-env
+# 这个是和nemu本身无关的行为. git_commit是上一级ysyx的监视器.
 	$(call git_commit, "run NEMU")
+# 这是 make run 的总命令: /build/riscv32-nemu-interpreter --log=/build/nemu-log.txt [ARGS_DIFF内容] [IMG文件]
 	$(NEMU_EXEC)
 
 gdb: run-env

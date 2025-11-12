@@ -11,22 +11,30 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+//通用工具头文件. 它
 ***************************************************************************************/
 
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+//clangd的静态分析在这里会报错: 文件被递归包含. 无需考虑, 因为有include guard保护. 静态分析有时候处理的不完整.
 #include <common.h>
 
 // ----------- state -----------
-
-enum { NEMU_RUNNING, NEMU_STOP, NEMU_END, NEMU_ABORT, NEMU_QUIT };
+//nemu模拟器的运行状态枚举类型.
+enum { 
+  NEMU_RUNNING,  // 暂停（还没运行或被暂停）
+  NEMU_STOP, // 正在运行中
+  NEMU_END, // 程序执行结束（正常停止）
+  NEMU_ABORT, // 程序执行异常终止（错误或断言）
+  NEMU_QUIT // 用户请求退出模拟器
+};
 
 typedef struct {
-  int state;
-  vaddr_t halt_pc;
-  uint32_t halt_ret;
-} NEMUState;
+  int state;        //其值为上述枚举状态类型
+  vaddr_t halt_pc;  //程序PC的值，在程序停止(trap / ebreak / 错误)时保存.
+  uint32_t halt_ret;//程序的返回值，在程序停止时保存.
+} NEMUState;        
 
 extern NEMUState nemu_state;
 

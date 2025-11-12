@@ -21,9 +21,12 @@
 #if   defined(CONFIG_PMEM_MALLOC)
 static uint8_t *pmem = NULL;
 #else // CONFIG_PMEM_GARRAY
-static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
+static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};  //分配nemu的物理内存数组.
 #endif
 
+// guest_to_host是一个物理内存模拟器组件. 
+//nemu的物理内存是一个数组: uint8_t pmem[CONFIG_MSIZE];
+//它接收一个
 uint8_t* guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
 paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + CONFIG_MBASE; }
 

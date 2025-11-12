@@ -1,8 +1,11 @@
+#
+
+
 # 默认执行的目标是app.
 .DEFAULT_GOAL = app
 
 # Add necessary options if the target is a shared library
-# 如果在外部定义了SHARE=1, 则表示要构建共享库.so文件.
+# 如果在外部定义了SHARE=1, 则表示要构建共享库.so文件. 否则SO就是空的
 ifeq ($(SHARE),1)
 # 共享库的文件后缀是.so
 SO = -so
@@ -16,10 +19,11 @@ WORK_DIR  = $(shell pwd)
 BUILD_DIR = $(WORK_DIR)/build
 
 # 头文件路径: 默认包含当前路径下的include文件夹.
+# 其中变量 NAME 定义在主Makefile中. 当前项目下, NAME=riscv32-nemu-interpreter
 INC_PATH := $(WORK_DIR)/include $(INC_PATH)
 # 源文件存放路径
 OBJ_DIR  = $(BUILD_DIR)/obj-$(NAME)$(SO)
-# 最终生成的可执行文件路径. 其中NAME(共享库的文件名)在外部(其他.mk)定义. 这也说明build.mk是被include进其他mk文件的!!
+# 最终生成的可执行文件路径. 当前项目下, BINARY=build/riscv32-nemu-interpreter
 BINARY   = $(BUILD_DIR)/$(NAME)$(SO)
 
 # Compilation flags
@@ -60,6 +64,9 @@ $(OBJ_DIR)/%.o: %.cc
 
 # Depencies: 
 -include $(OBJS:.o=.d)
+
+
+
 
 # Some convenient rules
 

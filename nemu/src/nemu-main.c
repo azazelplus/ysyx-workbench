@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* Start engine. */
+  //nemu运行层级:  main() -> engine_start() -> sdb_mainloop()主循环 -> 接收用户命令, 交给cmd_[命令]()函数 -> (对于cmd_q()这里就是结束了)对cmd_c() -> cpu_exec() -> cpu_exec_once()单步执行下指令
   engine_start();
 
   return is_exit_status_bad();

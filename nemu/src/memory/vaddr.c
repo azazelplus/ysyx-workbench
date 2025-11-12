@@ -11,6 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+//虚拟地址vaddr 相关操作函数实现.
 ***************************************************************************************/
 
 #include <isa.h>

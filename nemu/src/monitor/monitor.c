@@ -11,6 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+初始化.
 ***************************************************************************************/
 
 #include <isa.h>
@@ -47,6 +48,7 @@ static char *diff_so_file = NULL;
 static char *img_file = NULL;
 static int difftest_port = 1234;
 
+// 加载命令行指定的镜像文件.
 static long load_img() {
   if (img_file == NULL) {
     Log("No image is given. Use the default build-in image.");
@@ -68,6 +70,7 @@ static long load_img() {
   fclose(fp);
   return size;
 }
+
 
 // 处理命令行参数. 使用getopt_long()函数(GNU扩展库)和全局变量optarg, 解析命令行参数并存到诸如log_file等变量中.
 static int parse_args(int argc, char *argv[]) {
@@ -100,6 +103,7 @@ static int parse_args(int argc, char *argv[]) {
   return 0;
 }
 
+// 初始化监视器.  
 void init_monitor(int argc, char *argv[]) {
   /* Perform some global initialization. */
 
@@ -119,6 +123,7 @@ void init_monitor(int argc, char *argv[]) {
   IFDEF(CONFIG_DEVICE, init_device());
 
   /* Perform ISA dependent initialization. */
+  //
   init_isa();
 
   /* Load the image to memory. This will overwrite the built-in image. */

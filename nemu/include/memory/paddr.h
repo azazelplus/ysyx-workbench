@@ -11,6 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+// 物理地址paddr 相关定义和操作函数声明与实现.
 ***************************************************************************************/
 
 #ifndef __MEMORY_PADDR_H__

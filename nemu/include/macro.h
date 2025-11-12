@@ -38,14 +38,19 @@
 // macro testing
 // See https://stackoverflow.com/questions/26099745/test-if-preprocessor-symbol-is-defined-inside-macro
 #define CHOOSE2nd(a, b, ...) b
+// MUX_WITH_COMMA宏: 如果传入的宏`contain_comma`是单独一个`,`的宏, 展开成CHOOSE2nd宏后即: `CHOOSE2nd(, a, b)`, 这样就会选择参数`a`. 否则选择`b`. 真古怪的东西...
 #define MUX_WITH_COMMA(contain_comma, a, b) CHOOSE2nd(contain_comma a, b)
+// MUX_MACRO_PROPERTY宏: 作用是...
 #define MUX_MACRO_PROPERTY(p, macro, a, b) MUX_WITH_COMMA(concat(p, macro), a, b)
+
 // define placeholders for some property
 #define __P_DEF_0  X,
 #define __P_DEF_1  X,
 #define __P_ONE_1  X,
 #define __P_ZERO_0 X,
+
 // define some selection functions based on the properties of BOOLEAN macro
+// MUXDEF宏的作用是: 如果宏`macro`被定义了(从而会被二级展开), 就选择参数X, 否则选择参数Y.
 #define MUXDEF(macro, X, Y)  MUX_MACRO_PROPERTY(__P_DEF_, macro, X, Y)
 #define MUXNDEF(macro, X, Y) MUX_MACRO_PROPERTY(__P_DEF_, macro, Y, X)
 #define MUXONE(macro, X, Y)  MUX_MACRO_PROPERTY(__P_ONE_, macro, X, Y)

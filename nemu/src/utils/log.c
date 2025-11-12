@@ -17,15 +17,17 @@
 
 extern uint64_t g_nr_guest_inst;
 
+//如果在AM目标下, 不进行日志初始化.
 #ifndef CONFIG_TARGET_AM
 FILE *log_fp = NULL;
 
+// 初始化日志系统.
 void init_log(const char *log_file) {
   log_fp = stdout;
   if (log_file != NULL) {
     FILE *fp = fopen(log_file, "w");
     Assert(fp, "Can not open '%s'", log_file);
-    log_fp = fp;
+    log_fp = fp;  //fopen 成功，就把全局 log_fp 指向新打开的文件流. 从此后日志会写入该文件而不是 stdout.
   }
   Log("Log is written to %s", log_file ? log_file : "stdout");
 }
