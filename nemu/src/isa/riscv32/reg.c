@@ -23,7 +23,12 @@ const char *regs[] = {
   "s8", "s9", "s10", "s11", "t3", "t4", "t5", "t6"
 };
 
+//打印RV32的32个通用寄存器(general purpose registers) + pc寄存器状态.
 void isa_reg_display() {
+  for (int i = 0; i < 32; i++) {
+    printf("%s\t0x%08x\n", regs[i], cpu.gpr[i]);
+  }
+  printf("pc\t0x%08x\n", cpu.pc);
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
