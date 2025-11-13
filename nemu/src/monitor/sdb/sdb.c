@@ -176,7 +176,24 @@ static int cmd_x(char *args){
 }
 
 
-static int cmd_p(char *args){
+// p EXPR: 表达式求值命令
+static int cmd_p(char *args) {
+  if (args == NULL) {
+    printf("Usage: p EXPR\n");
+    printf("Example: p 1+2, p 0x1000-10, p $pc\n");
+    return 0;
+  }
+  
+  //
+  bool success = false;
+  word_t result = expr(args, &success);
+  
+  if (success) {
+    printf("Result: %u (0x%x)\n", result, result);
+  } else {
+    printf("Invalid expression: %s\n", args);
+  }
+  
   return 0;
 }
 
