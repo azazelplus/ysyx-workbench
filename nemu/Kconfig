@@ -151,6 +151,13 @@ config ITRACE_COND
   string "Only trace instructions when the condition is true"
   default "true"
 
+# 是否启用监视点功能. defalut: y启用
+config WATCHPOINT
+  bool "Enable watchpoint"
+  default y
+  help
+    Enable watchpoint to monitor expression value changes.
+    When the value of a watched expression changes, NEMU will stop execution.
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF

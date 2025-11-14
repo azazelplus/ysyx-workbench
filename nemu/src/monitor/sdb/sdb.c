@@ -18,6 +18,7 @@
 #include <cpu/cpu.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <memory/paddr.h> //为了在cmd_x中使用paddr_read()来读取物理内存.
 #include "sdb.h"
 
 static int is_batch_mode = false;
@@ -35,8 +36,10 @@ static int cmd_help(char *args);
 static int cmd_info(char *args);
 static int cmd_x(char *args);
 static int cmd_p(char *args);
+#ifdef CONFIG_WATCHPOINT
 static int cmd_w(char *args);
 static int cmd_d(char *args);
+#endif
 /*******************************cmd_x Forward declarations********************************/
 
 
@@ -79,9 +82,10 @@ static struct {
   { "info", "Print program status", cmd_info },
   { "x", "Examine memory. Usage: x N EXPR", cmd_x },
   { "p", "Print the value of an expression EXPR. Usage: p EXPR", cmd_p },
+#ifdef CONFIG_WATCHPOINT
   { "w", "Set a watchpoint for an expression EXPR. Usage: w EXPR", cmd_w },
   { "d", "Delete a watchpoint with given NO. Usage: d NO", cmd_d },
-
+#endif
 
   /* TODO: Add more commands */
 
@@ -95,7 +99,7 @@ static struct {
 
 
 
-/**************************************cmd_x*******************************************/
+/**************************************cmd_xxx*******************************************/
 //continue cmd. 该函数让cpu从当前暂停位置继续一直执行下去. -1即最大整数, 希望执行无限多条指令，直到程序结束或被中断.
 static int cmd_c(char *args) {
   cpu_exec(-1);
@@ -148,6 +152,7 @@ static int cmd_help(char *args) {
   return 0;
 }
 
+// info cmd. info r/w: info r打印寄存器状态; info w打印监视点状态.
 static int cmd_info(char *args){
   if (args == NULL) 
   {
@@ -158,20 +163,76 @@ static int cmd_info(char *args){
   if(strcmp(args, "r")==0){
     //打印寄存器状态
     isa_reg_display();  //调用ISA层函数. 
-  } else if (strcmp(args, "w")==0){
+  } 
+#ifdef CONFIG_WATCHPOINT
+  else if (strcmp(args, "w")==0){
     //打印监视点状态
-    //wp_display();
+    display_wp();
   }
+#endif
   return 0;
 }
 
 //扫描内存:x N EXPR 求出表达式EXPR的值, 将结果作为起始内存地址, 以十六进制形式输出连续的N个4字节(N个32bit)
+//例子: x 10 0x80000000, x 4 $pc
 static int cmd_x(char *args){
-
-
-
-
-
+  if (args == NULL) {
+    printf("Usage: x N EXPR\n");
+    printf("Example: x 10 0x80000000, x 4 $pc\n");
+    return 0;
+  }
+  
+  // 提取第一个参数 N (要输出的字节数)
+  //strtok: 这是一个状态机迭代器函数. 它改写传入的字符串. 
+  // 第一次调用: 传入字符串s和分隔符(字符串, 但是会被看作一个一个字符)delim.  它将 s 中 第一个遇到的 delim(此处为" ")(如果delim传入的是字符串, 则其中每个单字符都参与匹配, 仍然只匹配成功一次)替换为'\0', 并返回 第一个token(字符串)的指针. 
+  // 下一次调用 n_str 时, 传入NULL, 它会继续从上次停止的位置继续查找下一个token. 但是被读的字符串args被改写了, arg还是指向这串包含'\0'的字符串.
+  char *n_str = strtok(args, " ");
+  if (n_str == NULL) {
+    printf("Error: missing argument N\n");
+    return 0;
+  }
+  
+  // 写入N
+  int n = atoi(n_str);
+  if (n <= 0) {
+    printf("Error: N must be a positive integer\n");
+    return 0;
+  }
+  
+  // 提取第二个参数作为表达式 EXPR
+  // strtok(NULL, " ") 会继续从上次位置解析下一个 token
+  char *expr_str = strtok(NULL, " ");
+  if (expr_str == NULL) {
+    printf("Error: missing expression EXPR\n");
+    return 0;
+  }
+  
+  // 对表达式 expr_str 求值，得到起始地址
+  bool success = false;
+  word_t addr = expr(expr_str, &success);
+  
+  if (!success) {
+    printf("Error: invalid expression '%s'\n", expr_str);
+    return 0;
+  }
+  
+  // 输出内存内容：每行显示 4 个字节（一个 word）
+  printf("Memory at 0x%08x:\n", addr);
+  for (int i = 0; i < n; i++) {
+    // 每 4 个字节打印一行
+    if (i % 4 == 0) {
+      printf("0x%08x: ", addr + i * 4);
+    }
+    
+    // 读取 4 字节并打印
+    word_t data = paddr_read(addr + i * 4, 4);
+    printf("0x%08x ", data);
+    
+    // 每 4 个 word 换行
+    if ((i + 1) % 4 == 0 || i == n - 1) {
+      printf("\n");
+    }
+  }
   return 0;
 }
 
@@ -198,15 +259,65 @@ static int cmd_p(char *args) {
 }
 
 
+#ifdef CONFIG_WATCHPOINT
+// watchpoint: w EXPR 设置监视点. 当表达式 EXPR 的值发生变化时, 暂停程序执行
+// example: w *0x80002000	
 static int cmd_w(char *args){
+  if (args == NULL) {
+    printf("Usage: w EXPR\n");
+    printf("Example: w $a0, w *0x80000000\n");
+    return 0;
+  }
+  
+  // 先对表达式求值，检查表达式是否有效
+  bool success = false;
+  word_t value = expr(args, &success);
+  
+  if (!success) {
+    printf("Error: invalid expression '%s'\n", args);
+    return 0;
+  }
+  
+  // 创建新的监视点
+  int no = create_wp(args, value);
+  if (no < 0) {
+    printf("Error: failed to create watchpoint\n");
+    return 0;
+  }
+  
+  printf("Watchpoint %d: %s = 0x%08x\n", no, args, value);
+  
   return 0;
 }
 
 
+// delete watchpoint: d NO 删除监视点
 static int cmd_d(char *args){
+  if (args == NULL) {
+    printf("Usage: d NO\n");
+    printf("Example: d 1, d 3\n");
+    return 0;
+  }
+  
+  // 解析监视点编号
+  int no = atoi(args);
+  
+  // 删除监视点
+  if (delete_wp(no) < 0) {
+    printf("Error: watchpoint %d not found\n", no);
+    return 0;
+  }
+  
+  printf("Delete watchpoint %d\n", no);
+  
   return 0;
 }
-/***********************************cmd_x  code end*************************************/
+#endif
+
+
+
+
+/***********************************cmd_xxx  code end*************************************/
 
 
 

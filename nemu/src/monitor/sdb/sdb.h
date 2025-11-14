@@ -20,4 +20,10 @@
 
 word_t expr(char *e, bool *success);
 
+// Watchpoint functions
+void display_wp();
+int create_wp(const char *expr_str, word_t value);
+int delete_wp(int no);
+bool scan_watchpoints();
+
 #endif

@@ -11,7 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
-//表达式求值的实现.
+//表达式求值的实现. 所有表达式的值均为word_t形式, 即uint_32. 值不支持负数(减法会溢出), 浮点数.
 ***************************************************************************************/
 
 #include <isa.h>
@@ -327,7 +327,7 @@ static bool check_parentheses(int p, int q) {
   return count == 0;
 }
 
-// 获取运算符优先级 (数字越小优先级越低)
+// 获取所有 二元运算符 的运算符优先级 (数字越小优先级越低)
 static int get_op_priority(int type) {
   switch (type) {
     case TK_OR:  return 1;   // 逻辑或|| 优先级最低 = 1
@@ -335,7 +335,7 @@ static int get_op_priority(int type) {
     case TK_EQ:
     case TK_NEQ: return 3;   // == !=
     case '+':
-    case '-':    return 4;   // + -
+    case '-':    return 4;   // + -(二元减号)
     case '*':
     case '/':    return 5;   // 乘除: 优先级最高 = 5
     default:     return 0;   // 不是运算符
@@ -343,8 +343,8 @@ static int get_op_priority(int type) {
 }
 
 
-// (保证token[p]..tokenp[q]已经是完整括号包裹的前提下)  找到主运算符的位置.
-//  筛选逻辑: 是运算符 && 不出现在一对括号中 && 优先级最低 && 最靠右的token
+// 找到 主二元运算符 的位置.
+//  筛选逻辑: 是二元运算符 && 不出现在一对括号中 && 优先级最低 && 最靠右
 static int find_main_op(int p, int q) {
   int main_op = -1;           // 主运算符位置
   int min_priority = 999;     // 最小优先级
@@ -383,9 +383,10 @@ static int find_main_op(int p, int q) {
 }
 
 
-// 找到从位置 p 开始的最小操作数的结束位置
-// 用于确定一元运算符的操作数范围
-// 最小操作数可以是: 数字、寄存器、或者一对匹配的括号
+// 找到从位置 p 开始的最小操作数的结束位置.
+// 用于确定一元运算符的操作数范围.
+// 最小操作数可以是: 数字、寄存器、或者一对匹配的括号.
+// 例如给进去 `(3 + 4) * 5` 的 tokens, 那么返回值应该是 `)` 的位置.
 static int find_unary_operand_end(int p, int q) {
   if (p > q) return -1;
   
@@ -418,7 +419,7 @@ static int find_unary_operand_end(int p, int q) {
 
 // 表达式求值函数. 递归求值.
 // 最终使用形式为 eval_expr(0, nr_token - 1, success);
-// 这个递归函数 拿到参数 p,q(即一段tokens)后, 可以处理四件事:
+// 这个递归函数 拿到参数 p,q(即一段tokens)后, 可以处理四件事(按优先级):
 // 1. 递归基: 如果只有单token, 直接返回值.
 // 2. 如果表达式被()包围, 去掉括号.
 // 3. 处理一元运算符.
@@ -469,10 +470,10 @@ static word_t eval_expr(int p, int q, bool *success) {
   }
   
   // 3.处理一元运算符 (TK_NEG 和 TK_DEREF)
-  // 一元运算符已经在词法分析阶段标记好了，这里只需要简单判断
-  // 一元运算符优先级高，只作用于紧邻的最小操作数
+  // 逻辑很简单: 只处理一元运算符在最前面的情况. 表达式中间的一元运算符会在找主运算符分割后 最终递归回来.
+  //如果表达式开头是一元运算符:
   if (p < q && (tokens[p].type == TK_NEG || tokens[p].type == TK_DEREF)) {
-    // 找到一元运算符后面的最小操作数范围
+    // 找到一元运算符后面的最小操作数范围:
     int operand_end = find_unary_operand_end(p + 1, q);
     if (operand_end == -1) {
       printf("Error: invalid operand for unary operator\n");
@@ -480,16 +481,22 @@ static word_t eval_expr(int p, int q, bool *success) {
       return 0;
     }
     
-    // 递归求值操作数
+    // 递归求值操作数. operand_val就是 一元运算符 后面的 操作数 的值.
+    // 此处已经考虑了如果一元运算符后面还是一个一元运算符的情况. 会递归回来.
     word_t operand_val = eval_expr(p + 1, operand_end, success);
     if (!*success) return 0;
     
-    // 应用一元运算符
-    word_t unary_result;
+    // 对 operand_val 应用 一元运算符, 得到 unary_result (一元运算符对后面操作数的结果)
+    word_t unary_result = 0;  // 初始化，避免编译器警告
     if (tokens[p].type == TK_NEG) {
       unary_result = (word_t)(-(int)operand_val);
-    } else {  // TK_DEREF
+    } else if (tokens[p].type == TK_DEREF) {
       unary_result = paddr_read(operand_val, 4);
+    } else {
+      // 不应该到达这里. 这意味着这个一元运算符不是TK_NEG或TK_DEREF
+      printf("Error: unexpected token type in unary operator\n");
+      *success = false;
+      return 0;
     }
     
     // 如果一元运算符后面还有内容，需要继续处理
@@ -513,7 +520,7 @@ static word_t eval_expr(int p, int q, bool *success) {
         case '*':    return unary_result * val2;
         case '/':
           if (val2 == 0) {
-            printf("Error: division by zero\n");
+            printf("Error: division by zero\n");      //除0
             *success = false;
             return 0;
           }
@@ -541,14 +548,14 @@ static word_t eval_expr(int p, int q, bool *success) {
     return 0;
   }
   
-  // 递归求值左右子表达式
+  // 递归求值 左右子表达式
   word_t val1 = eval_expr(p, op - 1, success);
   if (!*success) return 0;
   
   word_t val2 = eval_expr(op + 1, q, success);
   if (!*success) return 0;
   
-  // 根据运算符计算
+  // 根据 运算符 计算 左右子表达式 结果.
   switch (tokens[op].type) {
     case '+':    return val1 + val2;
     case '-':    return val1 - val2;
