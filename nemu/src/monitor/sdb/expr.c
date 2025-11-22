@@ -284,7 +284,7 @@ static void print_tokens() {
 // 3. 相等性    ==  !=
 // 4. 加减法    +   -
 // 5. 乘除法    *   /      (最高优先级)
-// 6. 一元      负号-  解引用*
+// 6. 一元      负号-  解引用*  
 // 7. 括号      ( )
 // 8. 原子      数字  寄存器
 /************************* 递归下降表达式求值 *************************/
@@ -423,7 +423,7 @@ static int find_unary_operand_end(int p, int q) {
 // 1. 递归基: 如果只有单token, 直接返回值.
 // 2. 如果表达式被()包围, 去掉括号.
 // 3. 处理一元运算符.
-// 4. 找主运算符, 递归求值左右子表达式.
+// 4. 找二元主运算符, 递归求值左右子表达式.
 // 理解递归的原则: 不要试图跟踪整个递归过程，而是相信递归函数能正确解决子问题(eval_expr(p,q)总是能黑箱式地给出最终结果, 我们只需要把当前问题调用它来解决.)，我们只需要关注当前层次的处理。
 static word_t eval_expr(int p, int q, bool *success) {
 
@@ -540,7 +540,7 @@ static word_t eval_expr(int p, int q, bool *success) {
     }
   }
   
-  // 找主运算符
+  // 找二元主运算符
   int op = find_main_op(p, q);
   if (op == -1) {
     printf("Error: no main operator found between %d and %d\n", p, q);
