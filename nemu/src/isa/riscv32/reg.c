@@ -11,6 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+//src/isa/riscv32/reg.c: RV32寄存器相关操作的实现.
 ***************************************************************************************/
 
 #include <isa.h>
@@ -31,6 +32,8 @@ void isa_reg_display() {
   printf("pc\t0x%08x\n", cpu.pc);
 }
 
+
+//根据寄存器名称字符串 s, 返回对应寄存器的值.
 word_t isa_reg_str2val(const char *s, bool *success) {
   // 检查是否是 pc 寄存器
   if (strcmp(s, "pc") == 0) {
