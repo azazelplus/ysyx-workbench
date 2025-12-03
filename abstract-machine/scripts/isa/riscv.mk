@@ -1,3 +1,6 @@
+# 本makefile调用层级:
+# $(AM_HOME)/scripts/riscv32-nemu.mk -> (本makefile)
+
 CROSS_COMPILE := riscv64-linux-gnu-
 COMMON_CFLAGS := -fno-pic -march=rv64g -mcmodel=medany -mstrict-align
 CFLAGS        += $(COMMON_CFLAGS) -static

@@ -13,29 +13,27 @@
 # See the Mulan PSL v2 for more details.
 #**************************************************************************************/
 
-# NEMU 项目 Makefile 包含关系
-# 主 Makefile (nemu/Makefile)
-# ├── include/config/auto.conf          [配置变量]
-# ├── include/config/auto.conf.cmd      [配置命令]
-# ├── src/filelist.mk                   [顶层源文件列表]
-# │   └── (被find命令找到的所有子目录的 filelist.mk)
-# │       ├── src/engine/filelist.mk    [引擎模块源文件]
-# │       ├── src/device/filelist.mk    [设备模块源文件]
-# │       ├── src/isa/filelist.mk       [ISA架构源文件]
-# │       └── src/utils/filelist.mk     [工具模块源文件]
-# ├── scripts/config.mk                 [Kconfig 配置规则]
-# └── scripts/native.mk                 [本地构建规则]
-#     ├── scripts/build.mk              [核心编译规则]
-#     └── tools/difftest.mk             [差分测试规则]
+# NEMU主Makefile包含关系:
+
+# $(NEMU_HOME)/Makefile(nemu主Makefile)
+#   ├── include $(NEMU_HOME)/include/config/auto.conf          [配置变量]  
+#   ├── include $(NEMU_HOME)/include/config/auto.conf.cmd      [配置命令]
+#   ├── include $(NEMU_HOME)/src/filelist.mk                   [顶层源文件列表]
+#   │             └──(被find命令找到的所有子目录的 filelist.mk)
+#   │                       ├── include $(NEMU_HOME)/src/engine/filelist.mk    [引擎模块源文件]
+#   │                       ├── include $(NEMU_HOME)/src/device/filelist.mk    [设备模块源文件]
+#   │                       ├── include $(NEMU_HOME)/src/isa/filelist.mk       [ISA架构源文件]
+#   │                       └── include $(NEMU_HOME)/src/utils/filelist.mk     [工具模块源文件]
+#   ├── include $(NEMU_HOME)/scripts/config.mk                 [Kconfig 配置规则]
+#   └── include $(NEMU_HOME)/scripts/native.mk                 [本地构建规则]
+#                 ├── include $(NEMU_HOME)/scripts/build.mk              [核心编译规则]
+#                 └── include $(NEMU_HOME)/tools/difftest.mk             [差分测试规则]
+
+# make run调用nemu主Makefile作用: 编译 NEMU 模拟器本身
+# 产物：nemu/build/riscv32-nemu-interpreter（可执行文件）
 
 
 
-# 它主要做了三件事.
-# 1. sanity check: 版权与环境检查;
-# 2. 配置变量: 从 menuconfig 读取配置选项, 设置编译器、编译选项、源文件列表等;
-# 3. 包含规则: 根据不同的目标平台, 包含不同的 makefile
-# 收集所有的filelist.mk, 得到完整的变量SRS-y和DIRS-y.
-# 统一处理SRCS-y和DIRS-y, 黑名单过滤, 得到最终的SRCS
 
 
 

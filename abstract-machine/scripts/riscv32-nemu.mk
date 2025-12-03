@@ -1,3 +1,6 @@
+#本makefile调用层级:
+#(本makefile) -> $(AM_HOME)/scripts/isa/riscv.mk 和 $(AM_HOME)/scripts/platform/nemu.mk
+
 include $(AM_HOME)/scripts/isa/riscv.mk
 include $(AM_HOME)/scripts/platform/nemu.mk
 CFLAGS  += -DISA_H=\"riscv/riscv.h\"
