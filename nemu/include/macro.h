@@ -50,7 +50,8 @@
 #define __P_ZERO_0 X,
 
 // define some selection functions based on the properties of BOOLEAN macro
-// MUXDEF宏的作用是: 如果宏`macro`被定义了(从而会被二级展开), 就选择参数X, 否则选择参数Y.
+// MUXDEF宏的作用是: 如果第一个参数`macro`是个被定义的宏(从而会被二级展开), 就选择参数X, 否则选择参数Y.
+// 其实就是一个根据"某个宏是否被定义"为选择信号的2选1多路选择器.
 #define MUXDEF(macro, X, Y)  MUX_MACRO_PROPERTY(__P_DEF_, macro, X, Y)
 #define MUXNDEF(macro, X, Y) MUX_MACRO_PROPERTY(__P_DEF_, macro, Y, X)
 #define MUXONE(macro, X, Y)  MUX_MACRO_PROPERTY(__P_ONE_, macro, X, Y)

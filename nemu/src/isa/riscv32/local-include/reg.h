@@ -18,6 +18,7 @@
 
 #include <common.h>
 
+// 对寄存器索引进行检查, 确保在合法范围内.
 static inline int check_reg_idx(int idx) {
   IFDEF(CONFIG_RT_CHECK, assert(idx >= 0 && idx < MUXDEF(CONFIG_RVE, 16, 32)));
   return idx;
