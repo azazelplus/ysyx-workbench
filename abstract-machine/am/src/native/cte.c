@@ -20,9 +20,14 @@ static void irq_handle(Context *c) {
   c->ksp = thiscpu->ksp;
 
   if (thiscpu->ev.event == EVENT_ERROR) {
+<<<<<<< HEAD
     uintptr_t rip = c->uc.uc_mcontext.gregs[REG_RIP];
     printf("Unhandle signal '%s' at rip = %p, badaddr = %p, cause = 0x%x\n",
         thiscpu->ev.msg, rip, thiscpu->ev.ref, thiscpu->ev.cause);
+=======
+    printf("Unhandle signal '%s' at pc = %p, badaddr = %p, cause = 0x%x\n",
+      thiscpu->ev.msg, AM_REG_PC(&c->uc), thiscpu->ev.ref, thiscpu->ev.cause);
+>>>>>>> ad41f4948e185243ca07f6d2a9ef296f7248d617
     assert(0);
   }
   c = user_handler(thiscpu->ev, c);
@@ -37,6 +42,7 @@ static void irq_handle(Context *c) {
 }
 
 static void setup_stack(uintptr_t event, ucontext_t *uc) {
+<<<<<<< HEAD
   void *rip = (void *)uc->uc_mcontext.gregs[REG_RIP];
   extern uint8_t _start, _etext;
   int trap_from_user = __am_in_userspace(rip);
@@ -44,6 +50,16 @@ static void setup_stack(uintptr_t event, ucontext_t *uc) {
     // Hack here: "+13" points to the instruction after syscall. This is the
     // instruction which will trigger the pending signal if interrupt is enabled.
     (rip == (void *)&sigprocmask + 13);
+=======
+  void *pc = (void *)AM_REG_PC(uc);
+  extern uint8_t _start, _etext;
+  int trap_from_user = __am_in_userspace(pc);
+  int signal_safe = IN_RANGE(pc, RANGE(&_start, &_etext)) || trap_from_user ||
+    // Hack here: "+13" points to the instruction after syscall. This is the
+    // instruction which will trigger the pending signal if interrupt is enabled.
+    // FIXME: should change 13 for aarch and riscv
+    (pc == (void *)&sigprocmask + 13);
+>>>>>>> ad41f4948e185243ca07f6d2a9ef296f7248d617
 
   if (((event == EVENT_IRQ_IODEV) || (event == EVENT_IRQ_TIMER)) && !signal_safe) {
     // Shared libraries contain code which are not reenterable.
@@ -59,6 +75,7 @@ static void setup_stack(uintptr_t event, ucontext_t *uc) {
   if (trap_from_user) __am_pmem_unprotect();
 
   // skip the instructions causing SIGSEGV for syscall
+<<<<<<< HEAD
   if (event == EVENT_SYSCALL) { rip += SYSCALL_INSTR_LEN; }
   uc->uc_mcontext.gregs[REG_RIP] = (uintptr_t)rip;
 
@@ -68,6 +85,19 @@ static void setup_stack(uintptr_t event, ucontext_t *uc) {
   // keep (rsp + 8) % 16 == 0 to support SSE
   if ((rsp + 8) % 16 != 0) rsp -= 8;
   Context *c = (void *)rsp;
+=======
+  if (event == EVENT_SYSCALL) { pc += SYSCALL_INSTR_LEN; }
+  AM_REG_PC(uc) = (uintptr_t)pc;
+
+  // switch to kernel stack if we were previously in user space
+  uintptr_t sp = trap_from_user ? thiscpu->ksp : AM_REG_SP(uc);
+  sp -= sizeof(Context);
+#ifdef __x86_64__
+  // keep (sp + 8) % 16 == 0 to support SSE
+  if ((sp + 8) % 16 != 0) sp -= 8;
+#endif
+  Context *c = (void *)sp;
+>>>>>>> ad41f4948e185243ca07f6d2a9ef296f7248d617
 
   // save the context on the stack
   c->uc = *uc;
@@ -76,6 +106,7 @@ static void setup_stack(uintptr_t event, ucontext_t *uc) {
   __am_get_intr_sigmask(&uc->uc_sigmask);
 
   // call irq_handle after returning from the signal handler
+<<<<<<< HEAD
   uc->uc_mcontext.gregs[REG_RDI] = (uintptr_t)c;
   uc->uc_mcontext.gregs[REG_RIP] = (uintptr_t)irq_handle;
   uc->uc_mcontext.gregs[REG_RSP] = (uintptr_t)c;
@@ -87,6 +118,19 @@ static void iret(ucontext_t *uc) {
   *uc = c->uc;
   thiscpu->ksp = c->ksp;
   if (__am_in_userspace((void *)uc->uc_mcontext.gregs[REG_RIP])) __am_pmem_protect();
+=======
+  AM_REG_GPR1(uc) = (uintptr_t)c;
+  AM_REG_PC(uc)   = (uintptr_t)irq_handle;
+  AM_REG_SP(uc)   = (uintptr_t)c;
+}
+
+static void iret(ucontext_t *uc) {
+  Context *c = (void *)AM_REG_GPR1(uc);
+  // restore the context
+  *uc = c->uc;
+  thiscpu->ksp = c->ksp;
+  if (__am_in_userspace((void *)AM_REG_PC(uc))) __am_pmem_protect();
+>>>>>>> ad41f4948e185243ca07f6d2a9ef296f7248d617
 }
 
 static void sig_handler(int sig, siginfo_t *info, void *ucontext) {
@@ -167,8 +211,13 @@ Context* kcontext(Area kstack, void (*entry)(void *), void *arg) {
   Context *c = (Context*)kstack.end - 1;
 
   __am_get_example_uc(c);
+<<<<<<< HEAD
   c->uc.uc_mcontext.gregs[REG_RIP] = (uintptr_t)__am_kcontext_start;
   c->uc.uc_mcontext.gregs[REG_RSP] = (uintptr_t)kstack.end;
+=======
+  AM_REG_PC(&c->uc) = (uintptr_t)__am_kcontext_start;
+  AM_REG_SP(&c->uc) = (uintptr_t)kstack.end;
+>>>>>>> ad41f4948e185243ca07f6d2a9ef296f7248d617
 
   int ret = sigemptyset(&(c->uc.uc_sigmask)); // enable interrupt
   assert(ret == 0);
