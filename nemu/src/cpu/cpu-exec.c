@@ -11,6 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+# 
 ***************************************************************************************/
 
 #include <cpu/cpu.h>
@@ -48,20 +49,28 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
 }
 
+// 传入pc和上下文结构体s, 执行一周期. 核心是调用函数isa_exec_once(s)
 static void exec_once(Decode *s, vaddr_t pc) {
   s->pc = pc;
-  s->snpc = pc;
-  isa_exec_once(s);
-  cpu.pc = s->dnpc;
+  s->snpc = pc; // 初始化 snpc (static next pc) 为当前 pc
+  isa_exec_once(s); // 执行指令. 这一步会完成取指, 译码, 执行, 并更新 s->snpc 和 s->dnpc
+  cpu.pc = s->dnpc; // 更新全局 CPU 的 PC 为下一条动态指令地址 (dnpc)
+
 #ifdef CONFIG_ITRACE
+  // 如果开启了指令追踪 (ITRACE), 则记录指令的执行日志
   char *p = s->logbuf;
+  // 1. 记录 PC 地址
   p += snprintf(p, sizeof(s->logbuf), FMT_WORD ":", s->pc);
-  int ilen = s->snpc - s->pc;
+  
+  // 2. 记录指令的机器码
+  int ilen = s->snpc - s->pc; // 计算指令长度
   int i;
   uint8_t *inst = (uint8_t *)&s->isa.inst.val;
   for (i = ilen - 1; i >= 0; i --) {
-    p += snprintf(p, 4, " %02x", inst[i]);
+    p += snprintf(p, 4, " %02x", inst[i]); // 逐字节打印机器码
   }
+  
+  // 3. 格式化对齐 (为了日志美观)
   int ilen_max = MUXDEF(CONFIG_ISA_x86, 8, 4);
   int space_len = ilen_max - ilen;
   if (space_len < 0) space_len = 0;
@@ -69,6 +78,7 @@ static void exec_once(Decode *s, vaddr_t pc) {
   memset(p, ' ', space_len);
   p += space_len;
 
+  // 4. 记录反汇编结果
 #ifndef CONFIG_ISA_loongarch32r
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
   disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
@@ -90,6 +100,7 @@ static void execute(uint64_t n) {
   }
 }
 
+// statistic()用来打印统计信息
 static void statistic() {
   IFNDEF(CONFIG_TARGET_AM, setlocale(LC_NUMERIC, ""));
 #define NUMBERIC_FMT MUXDEF(CONFIG_TARGET_AM, "%", "%'") PRIu64
@@ -99,6 +110,7 @@ static void statistic() {
   else Log("Finish running in less than 1 us and can not calculate the simulation frequency");
 }
 
+// assert_fail_msg()在断言失败时调用, 用来打印寄存器状态和统计信息.
 void assert_fail_msg() {
   isa_reg_display();
   statistic();

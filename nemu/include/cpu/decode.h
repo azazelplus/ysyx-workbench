@@ -11,6 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+decoder流程:
 ***************************************************************************************/
 
 #ifndef __CPU_DECODE_H__
@@ -120,7 +121,7 @@ finish:
 
 
 // --- pattern matching wrappers for decode ---
-// INSTPAT()宏, 
+// INSTPAT()宏用来匹配指令. 它生成 比较键key, 位掩码mask, shitf. 匹配成功后, 
 // 它利用了两个宏: INSTPAT_INST(s)宏(提取Decode结构体s中的当前32bit指令); INSTPAT_MATCH宏(匹配指令模式并执行对应代码).
 // 传入一个pattern字符串和可变参数`...`,  可变参数会被传给INSTPAT_MATCH宏.
 //在 INSTPAT()宏中, 如果传入的pattern匹配成功, 识别为正确指令, 就会跳转到标签`goto *(__instpat_end);` 结束本条指令解码过程.
