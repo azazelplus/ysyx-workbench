@@ -35,7 +35,7 @@
     └── test
 ```
 
-# npc接入am
+# log: npc接入am
 
 ## 1.首先整个minirv克隆为npc.
 
@@ -53,9 +53,9 @@ CFLAGS  += -DISA_RISCV32
 
 ## 3. AM 平台定义 (The Launcher)
 
-这是最关键的 Makefile 接口。这里定义了 AM 和 NPC 的握手方式。
+定义 AM 和 NPC 的握手方式。
 
-创建文件: `~/$(AM_HOME)/scripts/platform/npc.mk`. 它将include在上述 `riscv32-npc.mk` 里.
+创建文件: `~/$(AM_HOME)/scripts/platform/npc.mk`. 它将被include在上述 `riscv32-npc.mk` 里.
 
 内容照着 `~/$(AM_HOME)/scripts/platform/nemu.mk` 抄.
 

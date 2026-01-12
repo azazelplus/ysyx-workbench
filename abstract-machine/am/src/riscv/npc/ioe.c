@@ -1,3 +1,5 @@
+// input/output Emulation
+// 外设模拟.
 #include <am.h>
 #include <klib-macros.h>
 

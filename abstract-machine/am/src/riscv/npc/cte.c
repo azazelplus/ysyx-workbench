@@ -1,3 +1,5 @@
+// cpu trap/exception handling
+// 实现了中断/异常处理相关的函数.
 #include <am.h>
 #include <riscv/riscv.h>
 #include <klib.h>

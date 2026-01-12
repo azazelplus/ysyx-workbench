@@ -1,20 +1,21 @@
-# Makefile for AbstractMachine Kernels and Libraries
+# abstract-machine的主目录makefile.  Makefile for AbstractMachine Kernels and Libraries
 
-# 这是AM主Makefile. 
-# AM内核的Makefile($(AM_HOME)/am/Makefile) include它, 来构建am内核.
+# AM内核的Makefile  $(AM_HOME)/am/Makefile 内include它, 来构建am内核.
 # kilb库的Makefile($(AM_HOME)/klib/Makefile) include它, 来构建klib库.
 # cpu-tests的Makefile include它, 来构建测试程序并启动nemu运行.
 
 
 
 
-# 整个使用AM编译程序在nemu上运行(以am-kernels/tests/dummy.c为例, 此时我们在am-kernel目录下输入`make ARCH=riscv32-nemu ALL=dummy run`)的调用层级如下:
-# makefile的调用分为两种方式: 1.[including]  2.[make -f 指定makefile]
+# 整个使用AM编译程序在nemu上运行. 
+# 以am-kernels/tests/dummy.c为例, 
+# 当在am-kernel目录下输入`make ARCH=riscv32-nemu ALL=dummy run` 时, 调用层级如下:
+# tips: makefile的调用分为两种方式: 1.[including]  2.[make -f 指定makefile]
 
 # am-kernels/tests/cpu-tests/Makefile(起始点是tests目录下的Makefile)
 #  └── [生成并运行] Makefile.dummy(生成选定测试程序的临时Makefile)
-#             └── [include] ${AM_HOME}/Makefile(本AM主Makefile)
-#                           └── [include] scripts/riscv32-nemu.mk
+#             └── [include] ${AM_HOME}/Makefile(本Makefile)
+#                           └── [include] scripts/riscv32-nemu.mk()
 #                                 			├── [include] scripts/isa/riscv.mk(交叉编译器配置)
 #                                 			└── [include] scripts/platform/nemu.mk(启动 NEMU)
 #                                 							└── [运行] $(NEMU_HOME)/Makefile
@@ -27,6 +28,7 @@
 # 用途: 在最后 `[运行] $(NEMU_HOME)/Makefile` 时, 给可执行文件 `riscv32-nemu-interpreter` 传递的命令行参数.
 
 # NEMUFLAGS: 在nemu.mk定义. 是运行 `$(NEMU_HOME)/Makefile` 的make run时, 要传给`$(NEMU_HOME)/Makefile` 内变量ARGS的参数.
+
 
 # ARCH
 # 来源: 本Makefile认为由上层提供. 实际上要命令行run时指定.
@@ -113,7 +115,8 @@ ifeq ($(filter $(ARCHS), $(ARCH)), )
   $(error Expected $$ARCH in {$(ARCHS)}, Got "$(ARCH)")
 endif
 
-### Extract instruction set architecture (`ISA`) and platform from `$ARCH`. Example: `ARCH=x86_64-qemu -> ISA=x86_64; PLATFORM=qemu`
+### Extract ISA and platform from `$ARCH`. 从ARCH中拆得ISA和PLATFORM变量.
+### Example: `ARCH=x86_64-qemu -> ISA=x86_64; PLATFORM=qemu`
 ARCH_SPLIT = $(subst -, ,$(ARCH))
 ISA        = $(word 1,$(ARCH_SPLIT))
 PLATFORM   = $(word 2,$(ARCH_SPLIT))
@@ -126,25 +129,36 @@ endif
 ### Checks end here
 endif
 
-## 2. General Compilation Targets
 
-### Create the destination directory (`build/$ARCH`)
+## 2. General Compilation Targets 创建输出目录, 里面放所有输出产物.
+
+### Create the destination directory DST_DIR, 即 `build/$ARCH`
 WORK_DIR  = $(shell pwd)
 DST_DIR   = $(WORK_DIR)/build/$(ARCH)
 $(shell mkdir -p $(DST_DIR))
 
 ### Compilation targets (a binary image or archive)
+# img文件相对路径
 IMAGE_REL = build/$(NAME)-$(ARCH)
+# img文件绝对路径
 IMAGE     = $(abspath $(IMAGE_REL))
+# .a文件绝对路径
 ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
-### Collect the files to be linked: object files (`.o`) and libraries (`.a`)
+### Collect the files to be linked: object files (`.o`) and libraries (`.a`) 
+
+#从SRCS变量生成OBJS变量. SRCS变量: 所有源代码. 在内核Makefile中(am/Makefile)定义, 为 `SRCS = $(addprefix src/, $(AM_SRCS))`
+# 具体, 对SRCS中变量, 1.去掉后缀; 2.加.o后缀; 3.加上路径前缀$(DST_DIR)/
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
-# 将LIBS变量用sort去重, 然后加上am和klib这两个目标.
+
+# LIBS: 当前依赖的库. 这一句当前将LIBS变量用sort去重, 然后加上am和klib这两个目标. 如果具体的测试程序(如 dummy)有额外依赖, 也可以往这个变量里追加.
 LIBS     := $(sort $(LIBS) am klib) # lazy evaluation ("=") causes infinite recursions
+
+# LINKAGE: 这是一个文件路径列表，保存了所有需要交给链接器(Linked, ld)去合并的二进制文件路径.
 LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
 
-## 3. General Compilation Flags
+
+## 3. General Compilation Flags编译命令选项变量.
 
 ### (Cross) compilers, e.g., mips-linux-gnu-g++
 # CROSS_COMPILE变量在riscv.mk中被定义为 `riscv64-linux-gnu-`
@@ -161,6 +175,7 @@ READELF   = $(CROSS_COMPILE)readelf
 INC_PATH += $(WORK_DIR)/include $(addsuffix /include/, $(addprefix $(AM_HOME)/, $(LIBS)))
 INCFLAGS += $(addprefix -I, $(INC_PATH))
 
+# ARCH_H: 指定当前架构对应的arch头文件路径.
 ARCH_H := arch/$(ARCH).h
 CFLAGS   += -O2 -MMD -Wall -Werror $(INCFLAGS) \
             -D__ISA__=\"$(ISA)\" -D__ISA_$(shell echo $(ISA) | tr a-z A-Z)__ \
@@ -173,14 +188,17 @@ CXXFLAGS +=  $(CFLAGS) -ffreestanding -fno-rtti -fno-exceptions
 ASFLAGS  += -MMD $(INCFLAGS)
 LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
 
-## 4. Arch-Specific Configurations
+
+## 4. Arch-Specific Configurations 引入所选择ARCH的makefile.
 
 ### Paste in arch-specific configurations (e.g., from `scripts/x86_64-qemu.mk`)
-# 如果指定指令集, 比如在当前目录make ARCH=riscv32-nemu, 那么此处include ysyx/abstract-machine/scripts/riscv32-nemu.mk.
+# 例如, 如果指定架构为riscv32-nemu, 比如在am-kernel/tests/cputests里运行`make ARCH=riscv32-nemu ALL=dummy`, 那么此处include ysyx/abstract-machine/scripts/riscv32-nemu.mk.
 # `riscv32-nemu.mk`内又会include两个makefile: `scripts/isa/riscv.mk`和`scripts/platform/nemu.mk`.
 -include $(AM_HOME)/scripts/$(ARCH).mk
 
-## 5. Compilation Rules
+
+
+## 5. Compilation Rules 编译OBJ, 链接image的编译器命令.
 
 ### Rule (compile): a single `.c` -> `.o` (gcc)
 $(DST_DIR)/%.o: %.c
@@ -240,6 +258,8 @@ endif
 # addsuffix: 给词干加上.d后缀.
 # addprefix: 给.d文件加上路径前缀$(DST_DIR)/
 -include $(addprefix $(DST_DIR)/, $(addsuffix .d, $(basename $(SRCS))))
+
+
 
 ## 6. Miscellaneous
 
