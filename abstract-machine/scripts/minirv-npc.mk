@@ -1,3 +1,5 @@
+# 架构mk, 会被$(AM_HOME)/Makefile在参数ARCH = minirv-npc时include.
+
 include $(AM_HOME)/scripts/isa/riscv.mk
 include $(AM_HOME)/scripts/platform/npc.mk
 

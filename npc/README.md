@@ -2,10 +2,6 @@
 
 本模板的mill项目结构如下:
 
-
-
-
-
 ```
 ├── mill
 ├── .mill-jvm-opts(mill的JVM参数文件)
@@ -35,7 +31,7 @@
     └── test
 ```
 
-# log: npc接入am
+# 2. 工作日志: npc接入am
 
 ## 1.首先整个minirv克隆为npc.
 
@@ -86,7 +82,123 @@ AM 会成功编译 dummy.c 和 npc/trm.c。
 
 接下来的任务将是修改 ~/ysyx-workbench/npc 目录下的 Makefile 和 C++ 代码（
 
-即原 minirv 的副本），让它接住 AM 抛过来的球。
+即原 minirv 的副本）
+
+
+
+接入链条:
+
+首先, 运行`make ARCH=riscv32-npc ALL=dummy run`
+
+这将进入`am-kernels/tests/cpu-tests/Makefile`, 
+
+
+
+
+# 3 bug1调试日志
+
+
+在npc上运行dummy, cpu直接跑飞.
+
+运行日志: PC到80000018后开始重复循环.
+
+```
+[INFO] Starting simulation...
+[INFO] Max cycles: 1000
+[CYCLE     1] PC=0x80000000, INST=0x00000413
+[CYCLE     2] PC=0x80000004, INST=0x80009137
+[CYCLE     3] PC=0x80000008, INST=0x00010113
+[CYCLE     4] PC=0x8000000c, INST=0x800000b7
+[CYCLE     5] PC=0x80000010, INST=0x03c08093
+[CYCLE     6] PC=0x80000014, INST=0x000080e7
+[CYCLE     7] PC=0x80000018, INST=0x00000513
+[CYCLE     8] PC=0x00000000, INST=0x00000013
+[CYCLE     9] PC=0x80000000, INST=0x00000413
+[CYCLE    10] PC=0x80000004, INST=0x80009137
+[CYCLE    11] PC=0x80000008, INST=0x00010113
+[CYCLE    12] PC=0x8000000c, INST=0x800000b7
+[CYCLE    13] PC=0x80000010, INST=0x03c08093
+[CYCLE    14] PC=0x80000014, INST=0x000080e7
+```
+
+
+注意到dummy的反汇编`am-kernels/tests/cpu-tests/build/dummy-minirv-npc.txt`
+
+```
+80000000 <_start>:
+
+80000000:	00000413          	li	s0,0        # 清空栈指针sp
+80000004:	80009137          	lui	sp,0x80009  # 设置sp=0x8000_9000
+80000008:	00010113          	mv	sp,sp       # sp=sp, 垃圾指令. 可能是编译器填补不需要的addi用的?
+
+8000000c:	800000b7          	lui	ra,0x80000    # 设置ra=0x8000_0000
+80000010:	03c08093          	addi	ra,ra,60    # 设置ra=8000003c 即<_end+0xffff703c>
+80000014:	000080e7          	jalr	ra          # 是jalr ra offset(ra)的简写. 设置PC=8000003c, 即_trm_init段. 同时设置ra=80000018(下面的main段). 程序在_trm_init结束后, 调用jalr来返回到main段.
+
+
+
+80000018 <main>:
+80000018:	00000513          	li	a0,0
+8000001c:	00008067          	ret
+
+
+
+80000020 <halt>:
+80000020:	a00007b7          	lui	a5,0xa0000
+80000024:	00a7a023          	sw	a0,0(a5) # a0000000 <_end+0x1fff7000>
+80000028:	00050513          	mv	a0,a0
+8000002c:	00100073          	ebreak
+80000030:	80000237          	lui	tp,0x80000
+80000034:	03020213          	addi	tp,tp,48 # 80000030 <_end+0xffff7030>
+80000038:	00020067          	jr	tp # 0 <_entry_offset>
+
+
+
+8000003c <_trm_init>:
+8000003c:	ff410113          	addi	sp,sp,-12 # 80008ff4 <_end+0xfffffff4>
+80000040:	80000537          	lui	a0,0x80000
+80000044:	06450513          	addi	a0,a0,100 # 80000064 <_end+0xffff7064>
+80000048:	00112423          	sw	ra,8(sp)
+8000004c:	800000b7          	lui	ra,0x80000
+80000050:	01808093          	addi	ra,ra,24 # 80000018 <_end+0xffff7018>
+80000054:	000080e7          	jalr	ra
+80000058:	800000b7          	lui	ra,0x80000
+8000005c:	02008093          	addi	ra,ra,32 # 80000020 <_end+0xffff7020>
+80000060:	000080e7          	jalr	ra
+
+```
+
+
+注意这条指令
+```
+80000014:	000080e7          	jalr	ra
+```
+它是start.S编译出来的, jalr ra是简写, 其实是jalr ra 0(ra).
+
+意为, 
+1. 跳转: 将ra的值存入PC.
+2. 将ra+4的值存入ra, 即ra=ra+4
+
+
+发现问题:
+FDU应该有三个FD源:
+
+* A(应该补上): 来自ID/EX阶段的指令. 即直接从exu引出.
+  * 
+* B: 来自EX/MEM阶段的指令. 即从ex_mem_reg引出.
+  * 
+* C: 来自MEM/WB阶段的指令. 即从mem_wb_reg引出.
+  * 
+
+
+
+
+
+
+
+
+
+
 
 
 

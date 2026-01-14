@@ -1,13 +1,44 @@
-# abstract-machine的主目录makefile.  Makefile for AbstractMachine Kernels and Libraries
-
+# abstract-machine的主目录makefile.  Makefile for AbstractMachine Kernels and Libraries.
+# AM的主makefile, 用来被下面三种情况调用.
 # AM内核的Makefile  $(AM_HOME)/am/Makefile 内include它, 来构建am内核.
 # kilb库的Makefile($(AM_HOME)/klib/Makefile) include它, 来构建klib库.
 # cpu-tests的Makefile include它, 来构建测试程序并启动nemu运行.
+# am/kernels下的更复杂的测试程序
+
+##########################################################
+# 运行本makefile需要提供参数:  
+
+# MAKECMDGOALS
+# 这个是所有makefile普遍的没什么好说的. 
+
+# SRCS
+# 要编译的源码.
+# 在内核Makefile中(am/Makefile)定义为 `SRCS = $(addprefix src/, $(AM_SRCS))`
+# 在库Makefile中(klib/Makefile)定义为 `SRCS = $(addprefix src/, $(KLIB_SRCS))`
+# 在cpu测试中被定义为对应测试文件 `SRCS = tests/$(ALL).c`, 比如 `dummy.c`
+
+# ARCH
+# 要用的架构. 本am根据此来include对应的架构mk. 会被本makefile解析为ISA和PLATFORM变量.
+
+# NAME
+# 当前正在编译的模块/库/程序的名称. 它由是谁调用了本makefile决定:
+# 被内核 	`am/Makefile`调用时, 			定义为`NAME := am`; 
+# 被库 		`klib/Makefile`调用时, 			定义为`NAME = klib`; 
+# 被cpu测试	`cpu-tests/Makefile`调用时, 	定义为`NAME = dummy`.
+
+# LIBS
+# 程序需要引入的库. 如果是cpu-tests中的简单测试, 它们会传入空.
+##########################################################
+
+
+## 本makefile的调用层级:
+# 如果MAKECMDGOALS是run, 本makefile的run规则在架构.mk中定义.
+# 如果ARCH=xxx-npc, 	则run定义在 `/scripts/platform/npc.mk` 中, 会执行`make -C $(NPC_HOME) run IMG=$(IMAGE).bin`, 开一个子进程运行npc的Makefile的run规则, 传入IMG参数(本Makefile编译好的二进制文件).
+# 如果ARCH=xxx-nemu, 	则run定义在 `/scripts/platform/nemu.mk` 中, 会执行`make -C $(NEMU_HOME) run IMG=$(IMAGE).bin`, 开一个子进程运行nemu的Makefile的run规则, 传入IMG参数(本Makefile编译好的二进制文件).
 
 
 
 
-# 整个使用AM编译程序在nemu上运行. 
 # 以am-kernels/tests/dummy.c为例, 
 # 当在am-kernel目录下输入`make ARCH=riscv32-nemu ALL=dummy run` 时, 调用层级如下:
 # tips: makefile的调用分为两种方式: 1.[including]  2.[make -f 指定makefile]
@@ -21,50 +52,6 @@
 #                                 							└── [运行] $(NEMU_HOME)/Makefile
 #                                        								└──...(nemu编译层级.)
 
-##########################################################
-# 主要变量:
-# ARGS
-# 来源: 本Makefile认为由上层提供. 实际上是
-# 用途: 在最后 `[运行] $(NEMU_HOME)/Makefile` 时, 给可执行文件 `riscv32-nemu-interpreter` 传递的命令行参数.
-
-# NEMUFLAGS: 在nemu.mk定义. 是运行 `$(NEMU_HOME)/Makefile` 的make run时, 要传给`$(NEMU_HOME)/Makefile` 内变量ARGS的参数.
-
-
-# ARCH
-# 来源: 本Makefile认为由上层提供. 实际上要命令行run时指定.
-# 用途: 指定编译的 `isa-platform`. `riscv32-nemu` 即 `isa=riscv32; platform=nemu`.
-
-# NAME
-# 来源: 本Makefile认为由上层提供.
-# 被am/Makefile调用时, 定义为`NAME := am`; 
-# 被klib/Makefile调用时, 定义为`NAME = klib`; 
-# 被cpu-test的某个测试dummy的Makefile调用时, 定义为`NAME = dummy`.
-# 用途: NAME是当前正在编译的模块/库/程序的名称，用于生成输出文件名.
-
-#
-##########################################################
-
-
-
-
-# $(NEMU_HOME)/Makefile(即nemu主Makefile) 编译构建的层级:(它最终编译出riscv32-nemu-interpreter可执行文件)
-
-# $(NEMU_HOME)/Makefile(nemu主Makefile)
-#   ├── [include] $(NEMU_HOME)/include/config/auto.conf          [配置变量]  
-#   ├── [include] $(NEMU_HOME)/include/config/auto.conf.cmd      [配置命令]
-#   ├── [include] $(NEMU_HOME)/src/filelist.mk                   [顶层源文件列表]
-#   │             └──(被find命令找到的所有子目录的 filelist.mk)
-#   │                       ├── [include] $(NEMU_HOME)/src/engine/filelist.mk    [引擎模块源文件]
-#   │                       ├── [include] $(NEMU_HOME)/src/device/filelist.mk    [设备模块源文件]
-#   │                       ├── [include] $(NEMU_HOME)/src/isa/filelist.mk       [ISA架构源文件]
-#   │                       └── [include] $(NEMU_HOME)/src/utils/filelist.mk     [工具模块源文件]
-#   ├── [include] $(NEMU_HOME)/scripts/config.mk                 [Kconfig 配置规则]
-#   └── [include] $(NEMU_HOME)/scripts/native.mk                 [本地构建规则]
-#                 ├── [include] $(NEMU_HOME)/scripts/build.mk              [核心编译规则]
-#                 └── [include] $(NEMU_HOME)/tools/difftest.mk             [差分测试规则]
-
-
-# 
 
 
 
@@ -74,8 +61,7 @@
 
 
 
-### *Get a more readable version of this Makefile* by `make html` (requires python-markdown)
-# 使用方式: `make html`. 
+# html规则, 生成个更readable的版本. 使用方式: `make html`. 
 # sed -E `s/old/new/g` 是sed替换命令. -E是ERE. 将old(正则表达式)替换为new(替换字符串). g表示全局.
 # 此处old=^([^#])
 # 即匹配所有行首为非#的(即非注释)的行, 把它们前面加个空格, 然后写到文件Makefile.html中.
@@ -87,8 +73,7 @@ html:
 
 ## 1. Basic Setup and Checks
 
-### Default to create a bare-metal kernel image
-# 当用户没有在命令行指定make目标时, 默认目标是`image`.
+# 当用户没有指定MAKECMDGOALS时, 默认目标是`image`.
 ifeq ($(MAKECMDGOALS),)
   MAKECMDGOALS  = image
   .DEFAULT_GOAL = image
@@ -109,28 +94,28 @@ ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)
   $(error $$AM_HOME must be an AbstractMachine repo)
 endif
 
-### Check: environment variable `$ARCH` must be in the supported list
+### Check: environment variable `$ARCH` must be in the supported list. 如果没有指定ARCH会在此报错
 ARCHS = $(basename $(notdir $(shell ls $(AM_HOME)/scripts/*.mk)))
 ifeq ($(filter $(ARCHS), $(ARCH)), )
   $(error Expected $$ARCH in {$(ARCHS)}, Got "$(ARCH)")
 endif
 
-### Extract ISA and platform from `$ARCH`. 从ARCH中拆得ISA和PLATFORM变量.
-### Example: `ARCH=x86_64-qemu -> ISA=x86_64; PLATFORM=qemu`
+# 从ARCH中拆得ISA和PLATFORM变量. Example: `ARCH=x86_64-qemu -> ISA=x86_64; PLATFORM=qemu`
 ARCH_SPLIT = $(subst -, ,$(ARCH))
 ISA        = $(word 1,$(ARCH_SPLIT))
 PLATFORM   = $(word 2,$(ARCH_SPLIT))
 
 ### Check if there is something to build
+# flavor函数判断变量类型: undefined(没定义), recurisive(用=定义), simple(用:=定义)
 ifeq ($(flavor SRCS), undefined)
-  $(error Nothing to build)
+  $(error Variable SRCS not defined!! Nothing to build...)
 endif
 
 ### Checks end here
 endif
 
 
-## 2. General Compilation Targets 创建输出目录, 里面放所有输出产物.
+## 2. 创建输出目录, 里面放所有输出产物. 还有设置输出变量名字
 
 ### Create the destination directory DST_DIR, 即 `build/$ARCH`
 WORK_DIR  = $(shell pwd)
@@ -147,21 +132,24 @@ ARCHIVE   = $(WORK_DIR)/build/$(NAME)-$(ARCH).a
 
 ### Collect the files to be linked: object files (`.o`) and libraries (`.a`) 
 
-#从SRCS变量生成OBJS变量. SRCS变量: 所有源代码. 在内核Makefile中(am/Makefile)定义, 为 `SRCS = $(addprefix src/, $(AM_SRCS))`
+#从SRCS变量生成OBJS变量. 
 # 具体, 对SRCS中变量, 1.去掉后缀; 2.加.o后缀; 3.加上路径前缀$(DST_DIR)/
 OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
 
-# LIBS: 当前依赖的库. 这一句当前将LIBS变量用sort去重, 然后加上am和klib这两个目标. 如果具体的测试程序(如 dummy)有额外依赖, 也可以往这个变量里追加.
+# LIBS: 程序依赖的库. 这一句当前将LIBS变量用sort去重, 然后强制加上am和klib. 如果在运行cpu-tests下的测试, 它们都不需要额外添加库. 如果是am/kernel下的程序, 它们会传入额外需要的库到LIBS.
 LIBS     := $(sort $(LIBS) am klib) # lazy evaluation ("=") causes infinite recursions
 
-# LINKAGE: 这是一个文件路径列表，保存了所有需要交给链接器(Linked, ld)去合并的二进制文件路径.
+# LINKAGE: 这是一个文件路径列表，保存了所有需要交给链接器(Linked, ld)去合并的二进制文件路径. 此处先包括所有OBJ, 后面会添加更多库文件路径.
 LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
+
+
 
 
 ## 3. General Compilation Flags编译命令选项变量.
 
-### (Cross) compilers, e.g., mips-linux-gnu-g++
-# CROSS_COMPILE变量在riscv.mk中被定义为 `riscv64-linux-gnu-`
+### 交叉编译选项(Cross) compilers, e.g., mips-linux-gnu-g++
+# CROSS_COMPILE变量来自ARCH变量include的mk文件(见下文4.)
+# 例如, 在riscv.mk中被定义为 `riscv64-linux-gnu-`
 AS        = $(CROSS_COMPILE)gcc
 CC        = $(CROSS_COMPILE)gcc
 CXX       = $(CROSS_COMPILE)g++
@@ -189,16 +177,16 @@ ASFLAGS  += -MMD $(INCFLAGS)
 LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
 
 
-## 4. Arch-Specific Configurations 引入所选择ARCH的makefile.
 
-### Paste in arch-specific configurations (e.g., from `scripts/x86_64-qemu.mk`)
-# 例如, 如果指定架构为riscv32-nemu, 比如在am-kernel/tests/cputests里运行`make ARCH=riscv32-nemu ALL=dummy`, 那么此处include ysyx/abstract-machine/scripts/riscv32-nemu.mk.
-# `riscv32-nemu.mk`内又会include两个makefile: `scripts/isa/riscv.mk`和`scripts/platform/nemu.mk`.
+## 4.引入所选择ARCH的makefile.
+# 例如, 如果ARCH=riscv32-nemu, 那么此处include `$(AM_HOME)/scripts/riscv32-nemu.mk`
+# `riscv32-nemu.mk`内又会include对应ISA和PLATFORM对应makefile: `scripts/isa/riscv.mk`和`scripts/platform/nemu.mk`.
 -include $(AM_HOME)/scripts/$(ARCH).mk
 
 
 
-## 5. Compilation Rules 编译OBJ, 链接image的编译器命令.
+
+## 5. 编译链接工作. Compilation Rules 编译OBJ, 链接image的编译器命令.
 
 ### Rule (compile): a single `.c` -> `.o` (gcc)
 $(DST_DIR)/%.o: %.c

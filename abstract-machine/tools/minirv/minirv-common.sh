@@ -1,5 +1,9 @@
 #!/bin/bash
+# 
 
+
+# ${parameter:offset:length}表达式.
+# 此处*表示传入的所有参数, offset=-1表示从尾到头数的第1个参数. length省略. 注意-1前面有一个空格.
 src=${*: -1}
 dst=${*: -2:1}
 cc=$1

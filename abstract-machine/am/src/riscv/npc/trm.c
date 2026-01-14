@@ -15,6 +15,7 @@ extern char _pmem_start;
 
 // 串口的内存映射地址.
 #define SERIAL_PORT 0xa00003f8
+#define NPC_TRAP_ADDR 0xa0000000
 
 
 // 堆区间定义.
@@ -31,6 +32,9 @@ void putch(char ch) {
 // 停机指令.
 // 硬件要求: minirv需要实现ebreak
 void halt(int code) {
+    // 将返回值写入 TRAP 端口, 用于通知仿真器结束并返回 exit code
+    *(volatile int *)NPC_TRAP_ADDR = code;
+
     asm volatile("mv a0, %0; ebreak" : :"r"(code));
     while (1);
 }

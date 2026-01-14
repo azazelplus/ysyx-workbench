@@ -1,17 +1,37 @@
 #***************************************************************************************
 # Copyright (c) 2014-2022 Zihao Yu, Nanjing University
-#
 # NEMU is licensed under Mulan PSL v2.
 # You can use this software according to the terms and conditions of the Mulan PSL v2.
 # You may obtain a copy of Mulan PSL v2 at:
 #          http://license.coscl.org.cn/MulanPSL2
-#
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
 # EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
 # MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-#
 # See the Mulan PSL v2 for more details.
 #**************************************************************************************/
+
+
+# nemu模拟器的主Makefile. 编译构建的层级:(它最终编译出riscv32-nemu-interpreter可执行文件)
+#########################################################
+# 运行本makefile需要提供参数:  
+# IMG, 要运行的二进制镜像文件路径.
+#########################################################
+
+
+
+# $(NEMU_HOME)/Makefile(nemu主Makefile)
+#   ├── [include] $(NEMU_HOME)/include/config/auto.conf          [配置变量]  
+#   ├── [include] $(NEMU_HOME)/include/config/auto.conf.cmd      [配置命令]
+#   ├── [include] $(NEMU_HOME)/src/filelist.mk                   [顶层源文件列表]
+#   │             └──(被find命令找到的所有子目录的 filelist.mk)
+#   │                       ├── [include] $(NEMU_HOME)/src/engine/filelist.mk    [引擎模块源文件]
+#   │                       ├── [include] $(NEMU_HOME)/src/device/filelist.mk    [设备模块源文件]
+#   │                       ├── [include] $(NEMU_HOME)/src/isa/filelist.mk       [ISA架构源文件]
+#   │                       └── [include] $(NEMU_HOME)/src/utils/filelist.mk     [工具模块源文件]
+#   ├── [include] $(NEMU_HOME)/scripts/config.mk                 [Kconfig 配置规则]
+#   └── [include] $(NEMU_HOME)/scripts/native.mk                 [本地构建规则]
+#                 ├── [include] $(NEMU_HOME)/scripts/build.mk              [核心编译规则]
+#                 └── [include] $(NEMU_HOME)/tools/difftest.mk             [差分测试规则]
 
 # NEMU主Makefile包含关系:
 
@@ -33,6 +53,14 @@
 # 产物：nemu/build/riscv32-nemu-interpreter（可执行文件）
 
 
+################################################################################
+# 需要传递参数: 
+# ARGS
+# 来源: 本Makefile认为由上层提供. 实际上是
+# 用途: 在最后 `[运行] $(NEMU_HOME)/Makefile` 时, 给可执行文件 `riscv32-nemu-interpreter` 传递的命令行参数.
+# NEMUFLAGS: 在nemu.mk定义. 是运行 `$(NEMU_HOME)/Makefile` 的make run时, 要传给`$(NEMU_HOME)/Makefile` 内变量ARGS的参数.
+
+################################################################################
 
 
 

@@ -1,3 +1,5 @@
+// vitrual
+
 #include <am.h>
 
 bool vme_init(void* (*pgalloc_f)(int), void (*pgfree_f)(void*)) {
