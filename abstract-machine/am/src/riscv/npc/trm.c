@@ -15,6 +15,7 @@ extern char _pmem_start;
 
 // 串口的内存映射地址.
 #define SERIAL_PORT 0xa00003f8
+// MMIO实现ebreak.
 #define NPC_TRAP_ADDR 0xa0000000
 
 

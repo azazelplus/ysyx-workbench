@@ -12,13 +12,13 @@
 # 这个是所有makefile普遍的没什么好说的. 
 
 # SRCS
-# 要编译的源码.
+# 要编译的源码. 由调用am的上一层makefile提供.
 # 在内核Makefile中(am/Makefile)定义为 `SRCS = $(addprefix src/, $(AM_SRCS))`
 # 在库Makefile中(klib/Makefile)定义为 `SRCS = $(addprefix src/, $(KLIB_SRCS))`
 # 在cpu测试中被定义为对应测试文件 `SRCS = tests/$(ALL).c`, 比如 `dummy.c`
 
 # ARCH
-# 要用的架构. 本am根据此来include对应的架构mk. 会被本makefile解析为ISA和PLATFORM变量.
+# 要用的架构. 本am根据此来include对应的架构mk. 会被本makefile解析为 ISA 和 PLATFORM 2个变量.
 
 # NAME
 # 当前正在编译的模块/库/程序的名称. 它由是谁调用了本makefile决定:

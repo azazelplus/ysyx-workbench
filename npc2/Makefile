@@ -1,14 +1,5 @@
-# npc平台的Makefile.
+# npc2平台的Makefile. 目前就是直接指向sim.mk仿真makefile.
 
-#########################################################
-# 运行本makefile需要提供参数:  
-# IMG, 要运行的二进制镜像文件路径.
-#########################################################
+include sim/sim.mk
 
 
-
-run:
-	./sim/sim.sh $(IMG)
-
-clean:
-	rm -rf build generated out
