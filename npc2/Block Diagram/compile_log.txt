@@ -1,0 +1,13 @@
+2025/12/25 22:09:13.707488 cmd_run.go:1420: WARNING: cannot start document portal: dial unix /run/user/1000/bus: connect: no such file or directory
+warning: unknown font family: source sans 3
+   ┌─ @preview/circuiteria:0.2.0/src/circuit.typ:12:17
+   │
+12 │   set text(font: "Source Sans 3")
+   │                  ^^^^^^^^^^^^^^^
+
+warning: the `path` function is deprecated, use `curve` instead
+    ┌─ @preview/cetz:0.3.2/src/canvas.typ:124:8
+    │
+124 │         path(
+    │         ^^^^
+

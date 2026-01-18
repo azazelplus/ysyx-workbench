@@ -1,15 +1,24 @@
+# .gitignore语法规则:
+# foo   # 普通模式. 递归匹配任意层级下的文件foo.
+# *     # 匹配当前目录任意字符, 但是不包括路径分隔符/, 不递归. 例如, src/*.c会匹配src/main.c, 但不会匹配src/lib/helper.c 
+# **    # 全局通配符. 匹配一切.
+# ?     # 匹配任意单个字符
+# /     # 路径锚定. /foo只匹配./foo, 不匹配./a/foo. foo/只匹配
+# !     # 反忽略. 如果父目录已经被忽略, 则无效.
+
+
 *.*
 *
 !*/
-!/nemu/*
-!/abstract-machine/*
-!/nanos-lite/*
-!/navy-apps/*
-!/npc/*
-!/npc2/*
+!/nemu/
+!/abstract-machine/
+!/nanos-lite/
+!/navy-apps/
+!/npc/**
+!/npc2/**
+!.gitignore
 !Makefile
 !README.md
-!.gitignore
 !init.sh
 /fceux-am
 /nvboard
