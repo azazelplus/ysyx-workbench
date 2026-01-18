@@ -6,16 +6,29 @@
 # /     # 路径锚定. /foo只匹配./foo, 不匹配./a/foo. foo/只匹配
 # !     # 反忽略. 如果父目录已经被忽略, 则无效.
 
+# 一个项目的所有目录的.gitignore都应该用下面的白名单格式配置.gitignore:
+# *
+# !*/
 
-*.*
+# !/allowed_dir/
+# !/allowed_file
+
+
+
+
+# 主ignore默认忽略一切文件, 由子ignore用白名单决定追踪哪些文件.
 *
-!*/
+# 允许进入所有文件夹进行探测
+!*/ 
+
+
 !/nemu/
 !/abstract-machine/
 !/nanos-lite/
 !/navy-apps/
-!/npc/**
-!/npc2/**
+!/npc/
+!/npc2/
+
 !.gitignore
 !Makefile
 !README.md

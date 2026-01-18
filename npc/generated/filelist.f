@@ -1,0 +1,11 @@
+PC.sv
+IFU.sv
+IDU.sv
+EXU.sv
+LSU.sv
+WBU.sv
+RegFile.sv
+PMEM.sv
+HDU.sv
+FWU.sv
+MiniRV.sv
