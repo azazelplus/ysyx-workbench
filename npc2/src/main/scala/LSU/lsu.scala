@@ -1,4 +1,19 @@
-// MiniRV 访存单元 (Load/Store Unit)
+// MiniRV 访存单元 (Load/Store Unit).
+// 只有load&store指令会被LSU处理, 其他指令经过LSU只是为了去WBU.
+
+
+/*
+ * ┌──────────────┬──────────────┬──────────────┬──────────────┬──────────────────────────────────────┐
+ * │ 指令类型      │  PMEM read   │  PMEM write  │    Reg WB    │ 数据流向                              │
+ * ├──────────────┼──────────────┼──────────────┼──────────────┼──────────────────────────────────────┤
+ * │ Load (lw)    │ ✅          │ ❌           │ ✅          │ PMEM -> LSU -> WBU -> RegFile        │
+ * │ Store (sw)   │ ❌           │ ✅          │ ❌           │ RegFile(rs2) -> EXU -> LSU -> PMEM   │
+ * │ 普通计算(add) │ ❌           │ ❌          │  ✅          │ ALU -> LSU -> WBU -> RegFile         │
+ * └──────────────┴──────────────┴──────────────┴──────────────┴──────────────────────────────────────┘
+ *
+*/
+
+
 package minirv.lsu
 
 import chisel3._
@@ -40,26 +55,38 @@ class LSU extends Module {
   })
 
 
+
   val in = io.in
-  val addr = in.alu_result  //addr来自ALU计算结果. 对于Load/Store指令, alu-result就是要向DMem请求读/写的地址. 
-  val byte_offset = addr(1, 0)  // 地址的低 2 位，用于选择字节
+  val addr = in.alu_result  //addr: 对PMEM的读/写请求. 来自ALU计算结果. 对于Load/Store指令, alu-result就是要向DMem请求读/写的地址. 
+  val byte_offset = addr(1, 0)  // alu_result对于 load/store 指令是 read/write 地址.  地址的低 2 位被用于选择字节.例如: 
+// 如果请求读取raddr = 8000 0001, offset=01, 意味着要取8000 0000的第2个byte.
+// 如果请求读取raddr = 8000 0002, offset=10, 意味着要取8000 0000的第3个byte.
+// 如果请求读取raddr = 8000 0003, offset=11, 意味着要取8000 0000的第4个byte.
+// 如果请求读取raddr = 8000 0004, offset=00, 意味着要取8000 0000的第1个byte.
+
+// 如果请求写入waddr = 8000 0001, offset=01, 意味着要写8000 0000的第2个byte.
 
 
-  // ============ 数据存储器读取 ============
+  // ============ 1.load指令实现, 连接PMEM read端: 处理output raddr, input rdata============
 
-  // LSU透传了io.in.alu_result -> io.dmem.req.raddr. 这是因为, 只有load 
+  // LSU透传了io.in.alu_result -> io.dmem.req.raddr. 这是因为, 只有load指令才会进行读操作, 此时alu_result就是要读的地址. 
   // 修正：PMEM 接口期望对齐的地址，因为 LSU 内部逻辑假设读取到的是包含目标字节的完整字
   io.dmem.req.raddr := Cat(addr(31, 2), 0.U(2.W))
   val rdata_raw = io.dmem.resp.rdata
   
-  // 根据 mem_op 和地址偏移提取正确的数据
+
+  // 输入rdata, 根据 mem_op 和地址偏移, 提取正确的load_data.
   val load_data = WireDefault(0.U(Config.XLEN.W))
   
   switch(in.mem_op) {
+
+    // load word: 
     is(MemOp.LW) {
       // Load Word: 直接使用 32 位数据
       load_data := rdata_raw
     }
+
+    // load byte
     is(MemOp.LB) {
       // Load Byte (有符号扩展)
       val byte_data = MuxLookup(byte_offset, 0.U(8.W))(Seq(
@@ -70,6 +97,8 @@ class LSU extends Module {
       ))
       load_data := Cat(Fill(24, byte_data(7)), byte_data)  // 符号扩展
     }
+
+    // load byte unsigned
     is(MemOp.LBU) {
       // Load Byte Unsigned (零扩展)
       val byte_data = MuxLookup(byte_offset, 0.U(8.W))(Seq(
@@ -80,11 +109,15 @@ class LSU extends Module {
       ))
       load_data := Cat(0.U(24.W), byte_data)  // 零扩展
     }
+
+    // load halfword
     is(MemOp.LH) {
       // Load Halfword (有符号扩展)
       val half_data = Mux(byte_offset(1), rdata_raw(31, 16), rdata_raw(15, 0))
       load_data := Cat(Fill(16, half_data(15)), half_data)
     }
+
+    // load halfword unsigned
     is(MemOp.LHU) {
       // Load Halfword Unsigned (零扩展)
       val half_data = Mux(byte_offset(1), rdata_raw(31, 16), rdata_raw(15, 0))
@@ -92,7 +125,9 @@ class LSU extends Module {
     }
   }
 
-  // ============ 数据存储器写入 ============
+
+
+  // ============ 2.store指令实现, 连接PMEM write端: 处理input wen, waddr, wdata, wmask============
   io.dmem.req.wen   := in.mem_wen
   // 修正：PMEM 接口期望对齐的地址
   io.dmem.req.waddr := Cat(addr(31, 2), 0.U(2.W))
@@ -102,11 +137,15 @@ class LSU extends Module {
   val wmask = WireDefault(0.U(4.W))
   
   switch(in.mem_op) {
+
+    //store word
     is(MemOp.SW) {
       // Store Word
       wdata := in.store_data
       wmask := "b1111".U
     }
+
+    //store halfword
     is(MemOp.SH) {
       // Store Halfword
       wdata := Mux(byte_offset(1),
@@ -115,6 +154,8 @@ class LSU extends Module {
       )
       wmask := Mux(byte_offset(1), "b1100".U, "b0011".U)
     }
+
+    //store byte
     is(MemOp.SB) {
       // Store Byte
       wdata := MuxLookup(byte_offset, 0.U)(Seq(
@@ -135,8 +176,8 @@ class LSU extends Module {
   io.dmem.req.wdata := wdata
   io.dmem.req.wmask := wmask
 
-  // ============ 输出到 WBU ============
-  // 选择写回寄存器的数据：Load 指令则为从内存读出来的结果load_data, 其他则为ALU的结果. 当reg_wen=1时说明当前指令要写入, 否则wb_data无意义.
+  // ============ 3.输出到 WBU ============
+  // 选择写回寄存器的数据. 此处区分load指令和非load的写回指令. Load 指令则为从内存读出来的结果load_data, 其他则为ALU的结果. 当reg_wen=1时说明当前指令要写入, 否则wb_data无意义.
   val wb_data = Mux(in.mem_ren, load_data, in.alu_result)
 
   io.out.wb_data := wb_data

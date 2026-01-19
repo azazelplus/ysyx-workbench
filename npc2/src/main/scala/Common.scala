@@ -171,26 +171,6 @@ class DMemIO extends Bundle {
   val resp = Input(new DMemResp)
 }
 
-/**
-  * 寄存器堆读端口
-  */
-class RegFileReadPort extends Bundle {
-  val addr = Input(UInt(Config.REG_ADDR_W.W))
-  val data = Output(UInt(Config.XLEN.W))
-}
-
-/**
-  * 寄存器堆写端口
-  */
-class RegFileWritePort extends Bundle {
-  val addr = Input(UInt(Config.REG_ADDR_W.W))
-  val data = Input(UInt(Config.XLEN.W))
-  val en   = Input(Bool())
-}
-
-
-
-
 // 打拍寄存器
 class PipeStage extends Module {
   val io = IO(new Bundle {
