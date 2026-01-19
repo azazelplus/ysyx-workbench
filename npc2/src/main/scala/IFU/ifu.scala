@@ -25,9 +25,8 @@ class IFU extends Module {
     // ========== MiniRV(流水线控制)->IFU ==========
     val stall     = Input(Bool())       // 暂停信号. MiniRV->IFU, Load-Use 冒险时冻结 PC/IF
 
-    // ========== IFU<->PMEM (取指) ==========
-    val imem_addr  = Output(UInt(32.W)) // 指令地址. IFU->PMEM, 输出当前 PC 给 PMEM
-    val imem_rdata = Input(UInt(32.W))  // 指令数据. PMEM->IFU, 返回读取到的 32 位指令
+    // ========== IFU<->PMEM (取指接口) ==========
+    val imem = new IMemIO                 // IFU 为 Master (发送 req, 接收 resp)
   })
 
   // 实例化 PC 模块
@@ -39,9 +38,9 @@ class IFU extends Module {
   pc_module.io.stall     := io.stall
 
   // 输出指令地址到外部存储器
-  io.imem_addr := pc_module.io.pc
+  io.imem.req.addr := pc_module.io.pc
 
   // 输出到 IDU
   io.out.pc   := pc_module.io.pc
-  io.out.inst := io.imem_rdata
+  io.out.inst := io.imem.resp.data
 }

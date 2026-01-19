@@ -13,11 +13,9 @@ extern char _pmem_start;
 #define PMEM_SIZE (128 * 1024 * 1024)
 #define PMEM_END  ((uintptr_t)&_pmem_start + PMEM_SIZE)
 
+
 // 串口的内存映射地址.
 #define SERIAL_PORT 0xa00003f8
-// MMIO实现ebreak.
-#define NPC_TRAP_ADDR 0xa0000000
-
 
 // 堆区间定义.
 Area heap = RANGE(&_heap_start, PMEM_END);
@@ -31,16 +29,17 @@ void putch(char ch) {
 }
 
 // 停机指令.
-// 硬件要求: minirv需要实现ebreak
+// 执行两条指令: 1. 将main的退出码放到a0寄存器中. 2. 执行ebreak指令.
+// EBREAK指令本身不带立即数, 仿真器/硬件需要检查a0寄存器的值来确定程序是否成功退出(0为成功).
 void halt(int code) {
-    // 将返回值写入 TRAP 端口, 用于通知仿真器结束并返回 exit code
-    *(volatile int *)NPC_TRAP_ADDR = code;
-
-    asm volatile("mv a0, %0; ebreak" : :"r"(code));
+    asm volatile(
+        "mv a0, %0; ebreak"     //汇编指令. %0表示第一个操作数(从下面的 输出操作数 开始编号, 然后是输入操作数)
+        :               //输出操作数(riscv中为rd)
+        :"r"(code));    //输入操作数(riscv中为rs1,rs2). "r"(code)表示: 操作数值来自C变量code, r表示要求将其放入一个通用寄存器中. 也就是要求%0选用一个通用寄存器.
     while (1);
 }
 
-// 这是C程序入口. start.S会调用这个它.
+// 这是main()函数入口. start.S会调用它.
 void _trm_init() {
   int ret = main(mainargs);
   halt(ret);

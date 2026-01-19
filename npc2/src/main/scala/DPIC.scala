@@ -145,3 +145,54 @@ class EBREAKDetect extends BlackBox with HasBlackBoxInline {
       |
       |""".stripMargin)
 }
+
+/**
+  * 寄存器堆同步模块. 它接收regfile的32个寄存器输入, 没有输出. 它在内部: 每个时钟周期, 将所有 32 个寄存器的值同步到 C++ 仿真环境. Difftest!
+这样 C++ 端可以随时访问任意寄存器的值.
+  */
+class RegFileSync extends BlackBox with HasBlackBoxInline {
+  val io = IO(new Bundle {
+    val clock = Input(Clock())
+    val regs  = Input(Vec(32, UInt(32.W)))  // 32 个寄存器
+  })
+
+  setInline("RegFileSync.sv",
+    """module RegFileSync(
+      |  input         clock,
+      |  input  [31:0] regs_0,  regs_1,  regs_2,  regs_3,
+      |  input  [31:0] regs_4,  regs_5,  regs_6,  regs_7,
+      |  input  [31:0] regs_8,  regs_9,  regs_10, regs_11,
+      |  input  [31:0] regs_12, regs_13, regs_14, regs_15,
+      |  input  [31:0] regs_16, regs_17, regs_18, regs_19,
+      |  input  [31:0] regs_20, regs_21, regs_22, regs_23,
+      |  input  [31:0] regs_24, regs_25, regs_26, regs_27,
+      |  input  [31:0] regs_28, regs_29, regs_30, regs_31
+      |);
+      |
+      |  // DPI-C 函数声明: 同步单个寄存器值到 C++ 端
+      |  import "DPI-C" function void set_cpu_reg(input int idx, input int value);
+      |
+      |  // 每个时钟上升沿同步所有寄存器
+      |  always @(posedge clock) begin
+      |    set_cpu_reg(0,  regs_0);  set_cpu_reg(1,  regs_1);
+      |    set_cpu_reg(2,  regs_2);  set_cpu_reg(3,  regs_3);
+      |    set_cpu_reg(4,  regs_4);  set_cpu_reg(5,  regs_5);
+      |    set_cpu_reg(6,  regs_6);  set_cpu_reg(7,  regs_7);
+      |    set_cpu_reg(8,  regs_8);  set_cpu_reg(9,  regs_9);
+      |    set_cpu_reg(10, regs_10); set_cpu_reg(11, regs_11);
+      |    set_cpu_reg(12, regs_12); set_cpu_reg(13, regs_13);
+      |    set_cpu_reg(14, regs_14); set_cpu_reg(15, regs_15);
+      |    set_cpu_reg(16, regs_16); set_cpu_reg(17, regs_17);
+      |    set_cpu_reg(18, regs_18); set_cpu_reg(19, regs_19);
+      |    set_cpu_reg(20, regs_20); set_cpu_reg(21, regs_21);
+      |    set_cpu_reg(22, regs_22); set_cpu_reg(23, regs_23);
+      |    set_cpu_reg(24, regs_24); set_cpu_reg(25, regs_25);
+      |    set_cpu_reg(26, regs_26); set_cpu_reg(27, regs_27);
+      |    set_cpu_reg(28, regs_28); set_cpu_reg(29, regs_29);
+      |    set_cpu_reg(30, regs_30); set_cpu_reg(31, regs_31);
+      |  end
+      |
+      |endmodule
+      |
+      |""".stripMargin)
+}

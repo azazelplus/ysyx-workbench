@@ -53,8 +53,7 @@ class MiniRV extends Module {
   ifu.io.stall     := false.B  // 单周期无暂停
 
   // 连接 IFU 到 PMEM (指令存储器)
-  pmem.io.imem_addr := ifu.io.imem_addr
-  ifu.io.imem_rdata := pmem.io.imem_rdata
+  pmem.io.imem <> ifu.io.imem
 
   // =================================================================================
   // 3. ID 阶段 (Instruction Decode)

@@ -25,6 +25,11 @@ class RegFile extends Module {
   // 32 个 32 位寄存器.
   val regs = RegInit(VecInit(Seq.fill(32)(0.U(Config.XLEN.W))))
 
+  // ========== Difftest: 将寄存器堆同步到 C++ 端 ==========
+  val regSync = Module(new RegFileSync)
+  regSync.io.clock := clock
+  regSync.io.regs  := regs
+
   // 读取 (x0 恒为 0)
   io.rs1_data := Mux(io.rs1_addr === 0.U, 0.U, regs(io.rs1_addr))
   io.rs2_data := Mux(io.rs2_addr === 0.U, 0.U, regs(io.rs2_addr))

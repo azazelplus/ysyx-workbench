@@ -140,6 +140,29 @@ class DMemResp extends Bundle {
 }
 
 /**
+  * 指令存储器请求接口 (IFU -> PMEM)
+  */
+class IMemReq extends Bundle {
+  val addr = UInt(Config.ADDR_WIDTH.W)
+}
+
+/**
+  * 指令存储器响应接口 (PMEM -> IFU)
+  */
+class IMemResp extends Bundle {
+  val data = UInt(Config.INST_WIDTH.W)
+}
+
+/**
+  * 指令存储器接口 (双向)
+  * 从 IFU 视角：req 是输出，resp 是输入
+  */
+class IMemIO extends Bundle {
+  val req  = Output(new IMemReq)
+  val resp = Input(new IMemResp)
+}
+
+/**
   * 数据存储器接口 (双向)
   * 从 LSU 视角：req 是输出，resp 是输入
   */
