@@ -1,6 +1,5 @@
 
-// terminal interface for riscv npc, 终端接口. 提供putch, halt, 串口.
-// 
+// TRM(Turing Machine) - 图灵机, 最简单的运行时环境, 为程序提供基本的计算能力
 
 #include <am.h>
 #include <klib-macros.h>

@@ -78,10 +78,14 @@ int strncmp(const char *s1, const char *s2, size_t n) {
   return (unsigned char)*s1 - (unsigned char)*s2;
 }
 
-// 将字符c（转换为无符号字符后）复制到 指针s 所指向的内存区域的前n个字节中. 返回值为 指针s.
+// 将字符c(或者说1byte数据)复制到 指针s 所指向的内存区域的前n个byte中. 返回值为 指针s.
+// 字符c选用int只是历史惯性: 库函数printf(%c, mychar)也是如此, 会做默认参数提升, 把char mychar提升为int, 再取低8bit解析.
+// %c期望得到unsigned char. 试图将一个负数char给打印出字符会出错, 因为ascii码的范围是0~127, 而负数会被解释为大于127的值. 结果会显示�(replacement character).
 void *memset(void *s, int c, size_t n) {
-  //void指针不允许解引用, 不孕许下标(UB!!) 先强制转换为unsigned char指针.
+  // void指针不允许解引用, 不孕许下标(UB!!) 先将s强制转换为unsigned char指针.
+  // char和unsigned char区别: 
   unsigned char *p = (unsigned char *)s;
+  // 将c转换为unsigned char类型, 只保留低8bit.
   unsigned char ch = (unsigned char)c;
   for (size_t i = 0; i < n; i++) {
     p[i] = ch;
@@ -89,24 +93,23 @@ void *memset(void *s, int c, size_t n) {
   return s;
 }
 
-// 内存区域src的前n个字节复制到内存区域dst中. 返回值为dst.
+// 将内存区域src的前n个字节复制到内存区域dst中. 返回值为dst.
 void *memmove(void *dst, const void *src, size_t n) {
   unsigned char *d = (unsigned char *)dst;
   const unsigned char *s = (const unsigned char *)src;
   
   if (d < s) {
-    // 不重叠或 dst 在 src 之前，从前往后复制
+    // 不重叠或 dst 在 src 之前, 从前往后复制
     for (size_t i = 0; i < n; i++) {
       d[i] = s[i];
     }
   } else if (d > s) {
-    // dst 在 src 之后（可能重叠），从后往前复制
+    // dst 在 src 之后（可能重叠）, 从后往前复制
     for (size_t i = n; i > 0; i--) {
       d[i-1] = s[i-1];
     }
   }
-  // d == s 时，无需复制
-  
+  // d == s 时, 无需复制
   return dst;
 }
 

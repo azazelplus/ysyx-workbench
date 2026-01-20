@@ -151,6 +151,19 @@ config ITRACE_COND
   string "Only trace instructions when the condition is true"
   default "true"
 
+config IRINGBUF
+  depends on ITRACE
+  bool "Enable instruction ring buffer"
+  default y
+  help
+    Enable instruction ring buffer to record recent instructions.
+    When program crashes or hits error, the ring buffer content will be printed.
+
+config IRINGBUF_SIZE
+  depends on IRINGBUF
+  int "Ring buffer size (number of instructions)"
+  default 16
+
 # 是否启用监视点功能. defalut: y启用
 config WATCHPOINT
   bool "Enable watchpoint"

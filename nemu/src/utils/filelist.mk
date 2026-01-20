@@ -18,3 +18,8 @@ CXXSRC = src/utils/disasm.cc
 CXXFLAGS += $(shell llvm-config --cxxflags) -fPIE
 LIBS += $(shell llvm-config --libs)
 endif
+
+# iringbuf 需要 ITRACE 支持（因为要用 logbuf）
+ifdef CONFIG_IRINGBUF
+SRCS-y += src/utils/iringbuf.c
+endif

@@ -38,6 +38,13 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
+  
+  // 将指令写入环形缓冲区
+#ifdef CONFIG_IRINGBUF
+  extern void iringbuf_write(const char *logbuf);
+  iringbuf_write(_this->logbuf);
+#endif
+
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
   
 #ifdef CONFIG_WATCHPOINT
@@ -113,6 +120,13 @@ static void statistic() {
 // assert_fail_msg()在断言失败时调用, 用来打印寄存器状态和统计信息.
 void assert_fail_msg() {
   isa_reg_display();
+  
+  // 打印指令环形缓冲区
+#ifdef CONFIG_IRINGBUF
+  extern void iringbuf_display();
+  iringbuf_display();
+#endif
+
   statistic();
 }
 
@@ -151,6 +165,14 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) :
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
+      
+      // 如果是 BAD TRAP 或 ABORT，打印指令环形缓冲区
+#ifdef CONFIG_IRINGBUF
+      if (nemu_state.state == NEMU_ABORT || nemu_state.halt_ret != 0) {
+        extern void iringbuf_display();
+        iringbuf_display();
+      }
+#endif
       // fall through
     case NEMU_QUIT: statistic();
   }
