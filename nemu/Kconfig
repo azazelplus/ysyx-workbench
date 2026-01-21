@@ -164,7 +164,40 @@ config IRINGBUF_SIZE
   int "Ring buffer size (number of instructions)"
   default 16
 
-# 是否启用监视点功能. defalut: y启用
+
+# ============mtrace功能. 开启后可记录内存读写操作=============
+# 编译时开关: 是否将paddr.c内有关mtrace实现的代码参与编译. 否则会被宏注释.
+config MTRACE
+  depends on TRACE
+  bool "Enable memory access tracer"
+  default n
+  help
+    Enable memory access tracing to record read/write operations.
+    Useful for debugging memory-related bugs.
+# 运行时开关: 是否记录日志. Kconfig生成.config文件中, `CONFIG_MTRACE_COND`是一个string, 即字符串表达式.
+config MTRACE_COND
+  depends on MTRACE
+  string "Only trace memory access when the condition is true"
+  default "true"
+# 是否开启范围过滤
+config MTRACE_RANGE_ENABLE
+  depends on MTRACE
+  bool "Enable memory trace range filter"
+  default n
+  help
+    Only trace memory accesses within a specific address range.
+# 地址范围设定
+config MTRACE_RANGE_START
+  depends on MTRACE_RANGE_ENABLE
+  hex "Memory trace range start address"
+  default 0x80000000
+config MTRACE_RANGE_END
+  depends on MTRACE_RANGE_ENABLE
+  hex "Memory trace range end address"
+  default 0x88000000
+
+
+# =============监视点功能. defalut: y启用=================
 config WATCHPOINT
   bool "Enable watchpoint"
   default y

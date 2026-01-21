@@ -46,6 +46,9 @@ uint8_t mem[MEM_SIZE];
 // 全局仿真周期计数（由 dpic.cpp 访问）
 uint64_t g_cycle = 0;
 
+// 当前执行的 PC（由 dpic.cpp 用于 mtrace）
+uint32_t g_current_pc = 0;
+
 // ============ 程序加载 ============
 /**
  * 从二进制文件加载程序到存储器
@@ -136,6 +139,9 @@ int main(int argc, char** argv) {
         dut->clock = 1;
         dut->eval();
         tfp->dump(g_cycle * 2 + 10);
+        
+        // 更新当前 PC (供 mtrace 使用)
+        g_current_pc = dut->io_debug_pc;
         
         // 指令追踪
         if (dut->io_debug_pc != last_pc) {

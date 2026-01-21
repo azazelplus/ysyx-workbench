@@ -73,7 +73,7 @@
 // simplification for conditional compilation
 #define __IGNORE(...)
 #define __KEEP(...) __VA_ARGS__
-// keep the code if a boolean macro is defined
+// keep the code if a boolean macro is defined. 更优雅的#ifdef macro ... #endif写法
 #define IFDEF(macro, ...) MUXDEF(macro, __KEEP, __IGNORE)(__VA_ARGS__)
 // keep the code if a boolean macro is undefined
 #define IFNDEF(macro, ...) MUXNDEF(macro, __KEEP, __IGNORE)(__VA_ARGS__)

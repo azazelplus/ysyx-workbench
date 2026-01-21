@@ -6,6 +6,15 @@
 
 #include "dpic.h"
 #include "itrace.h"
+
+// ============ MTRACE 配置 ============
+// 定义 CONFIG_MTRACE 来启用内存访问追踪
+#define CONFIG_MTRACE 1
+
+#ifdef CONFIG_MTRACE
+#include "mtrace.h"
+#endif
+
 #include <cstdio>
 #include <cstdlib>
 
@@ -18,6 +27,9 @@
 
 // 存储器数组（由 main.cpp 定义，此处声明为外部变量）
 extern uint8_t mem[MEM_SIZE];
+
+// 当前执行的 PC（由 main.cpp 更新，用于 mtrace）
+extern uint32_t g_current_pc;
 
 // 检查地址是否在有效范围内
 static inline bool addr_valid(uint32_t addr) {
@@ -52,6 +64,10 @@ extern "C" uint32_t pmem_read(uint32_t raddr) {
     uint32_t idx = addr_to_index(addr);
     uint32_t data = *(uint32_t*)(mem + idx);
     
+#ifdef CONFIG_MTRACE
+    mtrace.write(addr, data, 4, MTRACE_READ, g_current_pc, g_cycle);
+#endif
+
     return data;
 }
 
@@ -80,6 +96,16 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
     
     uint32_t idx = addr_to_index(addr);
     
+    // 计算写入长度 (根据 mask)
+    uint8_t len = 0;
+    for (int i = 0; i < 4; i++) {
+        if (mask & (1 << i)) len++;
+    }
+
+#ifdef CONFIG_MTRACE
+    mtrace.write(addr, data, len, MTRACE_WRITE, g_current_pc, g_cycle);
+#endif
+
     // 按字节掩码写入
     for (int i = 0; i < 4; i++) {
         if (mask & (1 << i)) {
