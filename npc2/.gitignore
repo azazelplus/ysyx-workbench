@@ -4,12 +4,24 @@
 # 白名单模式: 仅追踪特定文件
 
 # 追踪的目录和文件
-!/src/
+
+# npc2的chisel源码
+!/src/ 
 !/src/**
+
+# sim程序的源码(非am部分)
+!/sim/src
+!/sim/src/**
+
+# 一些顶层文件
 !/project/
 !/project/**
+
+# 
 !Makefile
 !README.md
+
+#
 !build.mill
 !build.sbt
 !filelist.f
