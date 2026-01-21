@@ -1,4 +1,4 @@
-# NPC2 - MiniRV 单周期处理器
+# 1. 简介 NPC2 - MiniRV 单周期处理器
 
 这是 `npc` 项目的简化版本，将五级流水线 CPU 改为**单周期处理器**。
 
@@ -87,3 +87,25 @@ PC(n) ──►取指 ──► 译码 ──► 执行 ──► 访存 ──�
 2. 添加性能计数器（周期数、指令数等）
 3. 支持更多 RISC-V 指令（如 M 扩展的乘除法）
 4. 优化关键路径以提高时钟频率
+
+# 2. debug log
+
+## 2.1
+
+修改itrace.h的itrace实现, 结果在cpu-tests/下的`make ARCH=riscv32-npc2 ALL=dummy run` 始终没变化.
+
+问题: `sim.mk`的依赖没有包括头文件, 加上我很不合乎常理地把itrace的实现逻辑都放在了itrace.h, 而不是itrace.cpp.
+
+
+
+
+
+
+
+
+
+
+
+
+
+

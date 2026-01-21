@@ -8,7 +8,7 @@ import chisel3.util._
   * MiniRV 配置常量
   */
 object Config {
-  val XLEN = 32          // 数据宽度 (RV32)
+  val XLEN = 32          // eXecution length 数据宽度 (RV32) npc2是32位cpu.
   val ADDR_WIDTH = 32    // 地址宽度
   val INST_WIDTH = 32    // 指令宽度
   val REG_ADDR_W = 5     // 寄存器地址宽度 (32个寄存器)
