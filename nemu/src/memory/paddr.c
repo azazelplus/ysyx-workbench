@@ -12,6 +12,7 @@
 *
 * See the Mulan PSL v2 for more details.
 # 实现物理内存相关.
+# 实现MTRACE_LOG宏.
 ***************************************************************************************/
 
 #include <memory/host.h>
@@ -87,25 +88,30 @@ void init_mem() {
 
 // 读取物理地址. 其实就是包装了pmem_read实现. len是读取字节数, 可以为1,2,3,4. 例如addr=0x80000008, len=4, 读取4byte数据.
 word_t paddr_read(paddr_t addr, int len) {
-  word_t data = 0;  //读到的数据
+  word_t data = 0;  //读到的数据. 如果len<4, 高位补0
   //判断addr是不是允许访问的有效物理内存地址
   if (likely(in_pmem(addr))) {
-    data = pmem_read(addr, len);  //读取
-    MTRACE_LOG("READ ", addr, len, data); //mtrace实现写日志(关闭mtrace的时候, 这个宏啥也不干)
+    data = pmem_read(addr, len);  // 用pmem_read宏读取内存数据.
+    MTRACE_LOG("READ ", addr, len, data); // mtrace实现本次读内存的日志(关闭mtrace的时候, 这个宏啥也不干)
     return data;
   }
-
-  // mtrace实现: (如果关闭了CONFIG_DEVICE, 这一行宏展开就是啥也没有)
+  // 如果不是有效物理内存, 可能是MMIO地址. 在开启设备功能时进行查看.
+  // mtrace实现: (如果关闭了设备功能CONFIG_DEVICE, 这一行宏展开就是啥也没有)
   IFDEF(CONFIG_DEVICE, data = mmio_read(addr, len); MTRACE_LOG("MMIO_R", addr, len, data); return data);
 
+  // 如果addr既不是有效物理内存地址也不是mmio, 报错.
   out_of_bound(addr);
   return 0;
 }
 
 // 写内存地址. 例如addr=0x80000008, len=4, data=0x12345678, 将data的4byte写入addr开始的4byte内存.
 void paddr_write(paddr_t addr, int len, word_t data) {
+  // 记录本次写内存的日志(关闭mtrace的时候, 这个宏啥也不干)
   MTRACE_LOG("WRITE", addr, len, data);
+  // 判断addr是不是允许访问的有效物理内存地址, 是则调用pmem_write宏写入.
   if (likely(in_pmem(addr))) { pmem_write(addr, len, data); return; }
+  // 如果不是有效物理内存, 在开启外设时尝试MMIO写入
   IFDEF(CONFIG_DEVICE, MTRACE_LOG("MMIO_W", addr, len, data); mmio_write(addr, len, data); return);
+  // 如果addr既不是有效物理内存地址也不是mmio, 报错.
   out_of_bound(addr);
 }

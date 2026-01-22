@@ -19,9 +19,10 @@ extern uint64_t g_nr_guest_inst;
 
 //如果在AM目标下, 不进行日志初始化.
 #ifndef CONFIG_TARGET_AM
+// 写日志指针. 指针都会写到这里去.
 FILE *log_fp = NULL;
 
-// 初始化日志系统.
+// 初始化日志系统. 在monitor.c中的init_monitor()调用. 最终由nemu-main()调用init_monitor()实现初始化
 void init_log(const char *log_file) {
   log_fp = stdout;
   if (log_file != NULL) {
@@ -32,6 +33,9 @@ void init_log(const char *log_file) {
   Log("Log is written to %s", log_file ? log_file : "stdout");
 }
 
+// 检查当前是否启动日志. 需要满足两个条件: 
+// 1.Kconfig开启了TRACE, 从而CONFIG_TRACE=1
+// 2.当前指令
 bool log_enable() {
   return MUXDEF(CONFIG_TRACE, (g_nr_guest_inst >= CONFIG_TRACE_START) &&
          (g_nr_guest_inst <= CONFIG_TRACE_END), false);

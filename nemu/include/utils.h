@@ -11,7 +11,8 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
-//通用工具头文件. 它
+通用工具头文件. 它包含很多通用的宏工具, 如:
+
 ***************************************************************************************/
 
 #ifndef __UTILS_H__
@@ -64,6 +65,16 @@ uint64_t get_time();
 
 #define ANSI_FMT(str, fmt) fmt str ANSI_NONE
 
+
+// ============================================================================
+// 日志系统
+// ============================================================================
+
+// log_write(...)宏 - 写入日志文件到日志文件指针log_fp.
+// 用途：记录详细的运行日志到文件（如 instruction trace、memory trace）
+// 示例：
+//   log_write("PC=0x%x, instr=%s\n", cpu.pc, asm_str);
+//   只有在 log_enable() 返回 true 时才会真正写入.  log_enable()宏检测当前指令要不要记录.
 #define log_write(...) IFDEF(CONFIG_TARGET_NATIVE_ELF, \
   do { \
     extern FILE* log_fp; \
@@ -75,6 +86,12 @@ uint64_t get_time();
   } while (0) \
 )
 
+
+// _Log(...) - 既打印到终端，也写入日志文件
+// 用途：重要信息既要让用户看到（stdout），也要记录到文件
+// 示例：
+//   _Log("NEMU started, PC=0x%x\n", cpu.pc);
+//   会同时执行 printf(...) 和 log_write(...)
 #define _Log(...) \
   do { \
     printf(__VA_ARGS__); \

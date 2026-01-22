@@ -1,5 +1,6 @@
-# 本makefile被 riscv32-nemu.mk 包含. 用来启动nemu. 它将会执行bash命令:
-# /home/azazel/ysyx-workbench/nemu/build/riscv32-nemu-interpreter \
+# nemu平台的makefile. 当ARCH=xxx-nemu时会包含本makefile到`riscv32-nemu.mk`, 然后包含到AM主makefile中.
+# 用来启动nemu可执行程序(也就是xxx-nemu-interpreter). 它将会执行bash命令: 其中-l是指定日志路径.
+# /home/azazel/ysyx-workbench/nemu/build/xxx-nemu-interpreter \
     -b \
     -l /path/to/nemu-log.txt \
     /path/to/dummy-riscv32-nemu.bin
@@ -14,6 +15,7 @@
 #                           └── ...(nemu编译层级..)
 
 
+# AM_SRCS是最终am主Makefile要参与编译的源代码列表.
 AM_SRCS := platform/nemu/trm.c \
            platform/nemu/ioe/ioe.c \
            platform/nemu/ioe/timer.c \
@@ -32,11 +34,14 @@ CFLAGS    += -fdata-sections -ffunction-sections
 # -l是nemu的命令行参数, 指定日志文件路径.
 # 这样 NEMU 在运行时会把日志输出到编译输出目录下的 nemu-log.txt 文件.
 
-# -b是nemu的批处理模式参数, 启动后直接运行程序, 不进入交互式sdb.
+
+
 CFLAGS    += -I$(AM_HOME)/am/src/platform/nemu/include
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
+# -b是nemu的批处理模式参数, 启动后直接运行程序, 不进入交互式sdb.
+# 当前的日志地址被设定为: 把日志文件放在与编译产物同一个目录/nemu-log.txt.
 NEMUFLAGS += -b -l $(shell dirname $(IMAGE).elf)/nemu-log.txt
 
 MAINARGS_MAX_LEN = 64

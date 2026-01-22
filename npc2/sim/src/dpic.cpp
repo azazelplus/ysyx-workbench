@@ -6,15 +6,8 @@
 
 #include "dpic.h"
 #include "itrace.h"
-
-// ============ MTRACE 配置 ============
-// 定义 CONFIG_MTRACE 来启用内存访问追踪
-#define CONFIG_MTRACE 1
-
-#ifdef CONFIG_MTRACE
 #include "mtrace.h"
-#endif
-
+#include "ftrace.h"
 #include <cstdio>
 #include <cstdlib>
 
@@ -64,9 +57,7 @@ extern "C" uint32_t pmem_read(uint32_t raddr) {
     uint32_t idx = addr_to_index(addr);
     uint32_t data = *(uint32_t*)(mem + idx);
     
-#ifdef CONFIG_MTRACE
     mtrace.write(addr, data, 4, MTRACE_READ, g_current_pc, g_cycle);
-#endif
 
     return data;
 }
@@ -102,9 +93,7 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
         if (mask & (1 << i)) len++;
     }
 
-#ifdef CONFIG_MTRACE
     mtrace.write(addr, data, len, MTRACE_WRITE, g_current_pc, g_cycle);
-#endif
 
     // 按字节掩码写入
     for (int i = 0; i < 4; i++) {
@@ -135,10 +124,10 @@ extern "C" void ebreak_handler() {
         printf("[INFO] HIT GOOD TRAP (a0 = 0)\n");
     } else {
         printf("[ERROR] HIT BAD TRAP (a0 = %d)\n", exit_code);
-        // BAD TRAP 时显示指令追踪缓冲区
-#ifdef CONFIG_ITRACE
+        // BAD TRAP 时显示追踪缓冲区
         itrace.display_ringbuf();
-#endif
+        mtrace.display_ringbuf();
+        ftrace.display_ringbuf();
     }
     exit(exit_code);
 }

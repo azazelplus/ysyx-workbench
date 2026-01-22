@@ -43,7 +43,8 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 # run目标: 调用NPC2_HOME下的Makefile的run规则, 运行生成的二进制镜像文件.
+# 同时传递 ELF 文件路径用于 ftrace
 run: insert-arg
-	$(MAKE) -C $(NPC2_HOME) run IMG=$(IMAGE).bin
+	$(MAKE) -C $(NPC2_HOME) run IMG=$(IMAGE).bin ELF=$(IMAGE).elf
 
 .PHONY: insert-arg

@@ -8,31 +8,39 @@
 // 全局实例
 ITrace itrace;
 
+ITrace::ITrace() : head(0), curr(-1), is_enabled(true), is_realtime(false) {
+    for (int i = 0; i < ITRACE_BUF_SIZE; i++) {
+        entries[i].valid = false;
+    }
+}
+
 /**
  * write - 记录一条指令执行信息
  */
 void ITrace::write(uint32_t pc, uint32_t inst, uint64_t cycle) {
+    if (!is_enabled) return;
+
     entries[head].pc = pc;
     entries[head].inst = inst;
     entries[head].cycle = cycle;
     entries[head].valid = true;
 
-#if ITRACE_REALTIME
-    // ITRACE_REALTIME模式: 实时打印每条指令
-    std::string asm_str = disassemble(inst);
-    char logbuf[INST_LOG_SIZE];
-    snprintf(logbuf, INST_LOG_SIZE,
-             "[CYCLE %5lu] PC=0x%08x, INST=0x%08x %02x %02x %02x %02x %s",
-             cycle,
-             pc,
-             inst,
-             (inst >> 0) & 0xFF,
-             (inst >> 8) & 0xFF,
-             (inst >> 16) & 0xFF,
-             (inst >> 24) & 0xFF,
-             asm_str.c_str());
-    printf("%s\n", logbuf);
-#endif
+    if (is_realtime) {
+        // ITRACE_REALTIME模式: 实时打印每条指令
+        std::string asm_str = disassemble(inst);
+        char logbuf[INST_LOG_SIZE];
+        snprintf(logbuf, INST_LOG_SIZE,
+                 "[CYCLE %5lu] PC=0x%08x, INST=0x%08x %02x %02x %02x %02x %s",
+                 cycle,
+                 pc,
+                 inst,
+                 (inst >> 0) & 0xFF,
+                 (inst >> 8) & 0xFF,
+                 (inst >> 16) & 0xFF,
+                 (inst >> 24) & 0xFF,
+                 asm_str.c_str());
+        printf("%s\n", logbuf);
+    }
 
     // 记录当前位置
     curr = head;
@@ -45,7 +53,6 @@ void ITrace::write(uint32_t pc, uint32_t inst, uint64_t cycle) {
  * display_ringbuf - 显示环形缓冲区的内容
  */
 void ITrace::display_ringbuf() {
-#if !ITRACE_REALTIME
     if (curr < 0) {
         printf("[itrace] No instructions recorded.\n");
         return;
@@ -80,5 +87,4 @@ void ITrace::display_ringbuf() {
     }
 
     printf("========== End of Instruction Trace (%d instructions) ==========\n", count);
-#endif
 }

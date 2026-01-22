@@ -20,19 +20,6 @@
 #include <cstdio>
 #include <cstring>
 
-// ============ 内存追踪模式配置 ============
-// MTRACE_REALTIME = 1: 实时打印每次访存
-// MTRACE_REALTIME = 0: 只保存到环形缓冲区，错误/超时时才显示
-#define MTRACE_REALTIME 0
-
-// 是否启用地址范围过滤
-#define MTRACE_RANGE_ENABLE 0
-
-#if MTRACE_RANGE_ENABLE
-#define MTRACE_RANGE_START 0x80000000UL
-#define MTRACE_RANGE_END   0x88000000UL
-#endif
-
 // 环形缓冲区大小
 #define MTRACE_BUF_SIZE 32
 
@@ -62,85 +49,52 @@ private:
     MTraceEntry entries[MTRACE_BUF_SIZE];
     int head;
     int curr;
+    
+    bool is_enabled;       // 是否启用
+    bool is_realtime;      // 是否实时打印
+
+    // 地址过滤配置
+    bool range_enabled;
+    uint32_t range_start;
+    uint32_t range_end;
 
     // 检查地址是否在追踪范围内
-    inline bool in_range(uint32_t addr) {
-#if MTRACE_RANGE_ENABLE
-        return (addr >= MTRACE_RANGE_START && addr < MTRACE_RANGE_END);
-#else
-        return true;
-#endif
-    }
+    bool in_range(uint32_t addr);
 
     // 格式化日志
-    void format_log(char *buf, size_t size, const MTraceEntry &e) {
-        const char *type_str = (e.type == MTRACE_READ) ? "READ " : "WRITE";
-        snprintf(buf, size,
-                 "[CYCLE %5lu] %s: addr=0x%08x, len=%d, data=0x%08x, pc=0x%08x",
-                 e.cycle, type_str, e.addr, e.len, e.data, e.pc);
-    }
+    void format_log(char *buf, size_t size, const MTraceEntry &e);
 
 public:
-    MTrace() : head(0), curr(-1) {
-        for (int i = 0; i < MTRACE_BUF_SIZE; i++) {
-            entries[i].valid = false;
-        }
+    MTrace();
+
+    /**
+     * 配置追踪功能
+     */
+    void enable(bool en) { is_enabled = en; }
+    void set_realtime(bool real) { is_realtime = real; }
+    
+    /**
+     * 配置地址过滤范围
+     * @param en: 是否开启过滤
+     * @param start: 起始地址 (inclusive)
+     * @param end: 结束地址 (exclusive)
+     */
+    void set_range_filter(bool en, uint32_t start = 0, uint32_t end = 0) {
+        range_enabled = en;
+        range_start = start;
+        range_end = end;
     }
 
     /**
      * write - 记录一次内存访问
      */
     void write(uint32_t addr, uint32_t data, uint8_t len, MTraceType type, 
-               uint32_t pc, uint64_t cycle) {
-        // 范围过滤
-        if (!in_range(addr)) return;
-
-        entries[head].addr = addr;
-        entries[head].data = data;
-        entries[head].len = len;
-        entries[head].type = type;
-        entries[head].pc = pc;
-        entries[head].cycle = cycle;
-        entries[head].valid = true;
-
-#if MTRACE_REALTIME
-        char logbuf[MTRACE_LOG_SIZE];
-        format_log(logbuf, sizeof(logbuf), entries[head]);
-        printf("[mtrace] %s\n", logbuf);
-#endif
-
-        curr = head;
-        head = (head + 1) % MTRACE_BUF_SIZE;
-    }
+               uint32_t pc, uint64_t cycle);
 
     /**
      * display_ringbuf - 显示环形缓冲区内容
      */
-    void display_ringbuf() {
-#if !MTRACE_REALTIME
-        if (curr < 0) {
-            printf("[mtrace] No memory accesses recorded.\n");
-            return;
-        }
-
-        printf("\n========== Memory Trace Ring Buffer ==========\n");
-
-        int count = 0;
-        char logbuf[MTRACE_LOG_SIZE];
-
-        for (int i = 0; i < MTRACE_BUF_SIZE; i++) {
-            int idx = (head + i) % MTRACE_BUF_SIZE;
-            if (entries[idx].valid) {
-                format_log(logbuf, sizeof(logbuf), entries[idx]);
-                const char *marker = (idx == curr) ? " --> " : "     ";
-                printf("%s%s\n", marker, logbuf);
-                count++;
-            }
-        }
-
-        printf("========== End of Memory Trace (%d accesses) ==========\n", count);
-#endif
-    }
+    void display_ringbuf();
 };
 
 // 全局实例

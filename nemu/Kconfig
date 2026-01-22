@@ -1,3 +1,6 @@
+# ============================================================================
+# 1. Base ISA Configuration
+# ============================================================================
 mainmenu "NEMU Configuration Menu"
 
 choice
@@ -32,6 +35,10 @@ if ISA_riscv
 source "src/isa/riscv32/Kconfig"
 endif
 
+# ============================================================================
+# 2. NEMU Execution Engine
+# ============================================================================
+
 choice
   prompt "NEMU execution engine"
   default ENGINE_INTERPRETER
@@ -47,6 +54,10 @@ config ENGINE
   default "interpreter" if ENGINE_INTERPRETER
   default "none"
 
+# ============================================================================
+# 3. Running Mode
+# ============================================================================
+
 choice
   prompt "Running mode"
   default MODE_SYSTEM
@@ -56,6 +67,10 @@ config MODE_SYSTEM
   help
     Support full-system functionality, including privileged instructions, MMU and devices.
 endchoice
+
+# ============================================================================
+# 4. Build Target
+# ============================================================================
 
 choice
   prompt "Build target"
@@ -67,6 +82,10 @@ config TARGET_SHARE
 config TARGET_AM
   bool "Application on Abstract-Machine (DON'T CHOOSE)"
 endchoice
+
+# ============================================================================
+# 5. Build Options
+# ============================================================================
 
 menu "Build Options"
 choice
@@ -124,80 +143,105 @@ config CC_ASAN
   default n
 endmenu
 
+# ============================================================================
+# 6. Testing and Debugging
+# ============================================================================
+
 menu "Testing and Debugging"
 
-
+# 7.1 Global trace configuration
 config TRACE
   bool "Enable tracer"
   default y
 
 config TRACE_START
   depends on TRACE
-  int "When tracing is enabled (unit: number of instructions)"
+  int "Start recording trace after this many instructions"
   default 0
+  help
+    Record trace output only after executing N instructions.
+    Set to 0 to start recording from the beginning.
+    Useful for skipping early initialization code.
 
 config TRACE_END
   depends on TRACE
-  int "When tracing is disabled (unit: number of instructions)"
+  int "Stop recording trace after this many instructions"
   default 10000
-
-config ITRACE
-  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
-  bool "Enable instruction tracer"
-  default y
-
-config ITRACE_COND
-  depends on ITRACE
-  string "Only trace instructions when the condition is true"
-  default "true"
-
-config IRINGBUF
-  depends on ITRACE
-  bool "Enable instruction ring buffer"
-  default y
   help
-    Enable instruction ring buffer to record recent instructions.
-    When program crashes or hits error, the ring buffer content will be printed.
+    Stop recording trace output after executing N instructions.
+    Set to a large number (e.g., 9999999) to record until program ends.
+    Limits output size and improves performance.
 
-config IRINGBUF_SIZE
-  depends on IRINGBUF
-  int "Ring buffer size (number of instructions)"
-  default 16
-
-
-# ============mtrace功能. 开启后可记录内存读写操作=============
-# 编译时开关: 是否将paddr.c内有关mtrace实现的代码参与编译. 否则会被宏注释.
-config MTRACE
+menu "Instruction Tracing"
   depends on TRACE
-  bool "Enable memory access tracer"
-  default n
-  help
-    Enable memory access tracing to record read/write operations.
-    Useful for debugging memory-related bugs.
-# 运行时开关: 是否记录日志. Kconfig生成.config文件中, `CONFIG_MTRACE_COND`是一个string, 即字符串表达式.
-config MTRACE_COND
-  depends on MTRACE
-  string "Only trace memory access when the condition is true"
-  default "true"
-# 是否开启范围过滤
-config MTRACE_RANGE_ENABLE
-  depends on MTRACE
-  bool "Enable memory trace range filter"
-  default n
-  help
-    Only trace memory accesses within a specific address range.
-# 地址范围设定
-config MTRACE_RANGE_START
-  depends on MTRACE_RANGE_ENABLE
-  hex "Memory trace range start address"
-  default 0x80000000
-config MTRACE_RANGE_END
-  depends on MTRACE_RANGE_ENABLE
-  hex "Memory trace range end address"
-  default 0x88000000
+  visible if TRACE
 
+  config ITRACE
+    depends on TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+    bool "Enable instruction tracer"
+    default y
 
-# =============监视点功能. defalut: y启用=================
+  config ITRACE_COND
+    depends on ITRACE
+    string "Only trace instructions when the condition is true"
+    default "true"
+
+  menu "Ring Buffer"
+    depends on ITRACE
+    visible if ITRACE
+
+    config IRINGBUF
+      bool "Enable instruction ring buffer"
+      default y
+      help
+        Enable instruction ring buffer to record recent instructions.
+        When program crashes or hits error, the ring buffer content will be printed.
+
+    config IRINGBUF_SIZE
+      depends on IRINGBUF
+      int "Ring buffer size (number of instructions)"
+      default 16
+  endmenu
+endmenu
+
+menu "Memory Tracing"
+  depends on TRACE
+  visible if TRACE
+
+  config MTRACE
+    bool "Enable memory access tracer"
+    default n
+    help
+      Enable memory access tracing to record read/write operations.
+      Useful for debugging memory-related bugs.
+
+  config MTRACE_COND
+    depends on MTRACE
+    string "Only trace memory access when the condition is true"
+    default "true"
+
+  menu "Address Range Filter"
+    depends on MTRACE
+    visible if MTRACE
+
+    config MTRACE_RANGE_ENABLE
+      bool "Enable memory trace range filter"
+      default n
+      help
+        Only trace memory accesses within a specific address range.
+
+    config MTRACE_RANGE_START
+      depends on MTRACE_RANGE_ENABLE
+      hex "Memory trace range start address"
+      default 0x80000000
+
+    config MTRACE_RANGE_END
+      depends on MTRACE_RANGE_ENABLE
+      hex "Memory trace range end address"
+      default 0x88000000
+  endmenu
+endmenu
+
 config WATCHPOINT
   bool "Enable watchpoint"
   default y
@@ -205,52 +249,64 @@ config WATCHPOINT
     Enable watchpoint to monitor expression value changes.
     When the value of a watched expression changes, NEMU will stop execution.
 
-config DIFFTEST
+menu "Differential Testing"
   depends on TARGET_NATIVE_ELF
-  bool "Enable differential testing"
-  default n
-  help
-    Enable differential testing with a reference design.
-    Note that this will significantly reduce the performance of NEMU.
+  visible if TARGET_NATIVE_ELF
 
-choice
-  prompt "Reference design"
-  default DIFFTEST_REF_SPIKE if ISA_riscv
-  default DIFFTEST_REF_KVM if ISA_x86
-  default DIFFTEST_REF_QEMU
-  depends on DIFFTEST
-config DIFFTEST_REF_QEMU
-  bool "QEMU, communicate with socket"
-if ISA_riscv
-config DIFFTEST_REF_SPIKE
-  bool "Spike"
-endif
-if ISA_x86
-config DIFFTEST_REF_KVM
-  bool "KVM"
-endif
-endchoice
+  config DIFFTEST
+    bool "Enable differential testing"
+    default n
+    help
+      Enable differential testing with a reference design.
+      Note that this will significantly reduce the performance of NEMU.
 
-config DIFFTEST_REF_PATH
-  string
-  default "tools/qemu-diff" if DIFFTEST_REF_QEMU
-  default "tools/kvm-diff" if DIFFTEST_REF_KVM
-  default "tools/spike-diff" if DIFFTEST_REF_SPIKE
-  default "none"
+  choice
+    prompt "Reference design"
+    default DIFFTEST_REF_SPIKE if ISA_riscv
+    default DIFFTEST_REF_KVM if ISA_x86
+    default DIFFTEST_REF_QEMU
+    depends on DIFFTEST
+  config DIFFTEST_REF_QEMU
+    bool "QEMU, communicate with socket"
+  if ISA_riscv
+  config DIFFTEST_REF_SPIKE
+    bool "Spike"
+  endif
+  if ISA_x86
+  config DIFFTEST_REF_KVM
+    bool "KVM"
+  endif
+  endchoice
 
-config DIFFTEST_REF_NAME
-  string
-  default "qemu" if DIFFTEST_REF_QEMU
-  default "kvm" if DIFFTEST_REF_KVM
-  default "spike" if DIFFTEST_REF_SPIKE
-  default "none"
+  config DIFFTEST_REF_PATH
+    string
+    default "tools/qemu-diff" if DIFFTEST_REF_QEMU
+    default "tools/kvm-diff" if DIFFTEST_REF_KVM
+    default "tools/spike-diff" if DIFFTEST_REF_SPIKE
+    default "none"
+
+  config DIFFTEST_REF_NAME
+    string
+    default "qemu" if DIFFTEST_REF_QEMU
+    default "kvm" if DIFFTEST_REF_KVM
+    default "spike" if DIFFTEST_REF_SPIKE
+    default "none"
 endmenu
+
+endmenu
+
+# ============================================================================
+# 7. Memory and Device Configuration (System Mode Only)
+# ============================================================================
 
 if MODE_SYSTEM
 source "src/memory/Kconfig"
 source "src/device/Kconfig"
 endif
 
+# ============================================================================
+# 8. Miscellaneous
+# ============================================================================
 
 menu "Miscellaneous"
 choice

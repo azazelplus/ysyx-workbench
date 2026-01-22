@@ -15,11 +15,6 @@
 #include <cstring>
 #include <string>
 
-// ============ 指令追踪模式配置 ============
-// ITRACE_REALTIME = 1: 实时打印每条指令
-// ITRACE_REALTIME = 0: 只保存到环形缓冲区. 错误/超时时才显示.
-#define ITRACE_REALTIME 1
-
 // 环形缓冲区大小（指令条数）
 #define ITRACE_BUF_SIZE 16
 
@@ -40,13 +35,18 @@ private:
     ITraceEntry entries[ITRACE_BUF_SIZE];  // 环形缓冲区
     int head;                              // 下一个写入位置
     int curr;                              // 最后写入的位置（用于标记出错指令）
+    
+    bool is_enabled;                       // 是否开启追踪
+    bool is_realtime;                      // 是否实时打印
 
 public:
-    ITrace() : head(0), curr(-1) {
-        for (int i = 0; i < ITRACE_BUF_SIZE; i++) {
-            entries[i].valid = false;
-        }
-    }
+    ITrace();
+
+    /**
+     * 配置追踪功能
+     */
+    void enable(bool en) { is_enabled = en; }
+    void set_realtime(bool real) { is_realtime = real; }
 
     /**
      * write - 记录一条指令执行信息
@@ -57,7 +57,7 @@ public:
     void write(uint32_t pc, uint32_t inst, uint64_t cycle = 0);
 
     /**
-     * display_ringbuf - 显示环形缓冲区的内容（仅在 ITRACE_REALTIME = 0 时有意义）
+     * display_ringbuf - 显示环形缓冲区的内容
      * 
      * 用 "-->" 标记最后执行的指令（通常是出错的指令）。
      * 这个函数通常在 BAD TRAP 或超时时调用。
