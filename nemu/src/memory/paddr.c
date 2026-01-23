@@ -12,7 +12,7 @@
 *
 * See the Mulan PSL v2 for more details.
 # 实现物理内存相关.
-# 实现MTRACE_LOG宏.
+# 实现MTRACE_LOG宏. 它利用了utils.h
 ***************************************************************************************/
 
 #include <memory/host.h>
