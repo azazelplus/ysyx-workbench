@@ -180,6 +180,8 @@ void FTrace::format_log(char *buf, size_t size, const FTraceEntry &e) {
     }
 }
 
+
+// trace方法: 追踪一条指令, 判断是否为call/ret, 如果是则记录.
 void FTrace::trace(uint32_t pc, uint32_t inst, uint32_t next_pc, uint64_t cycle) {
     // RISC-V 指令解码
     uint32_t opcode = inst & 0x7F;
