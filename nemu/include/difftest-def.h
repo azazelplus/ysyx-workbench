@@ -11,6 +11,7 @@
 * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 *
 * See the Mulan PSL v2 for more details.
+# difftest 头文件.
 ***************************************************************************************/
 
 #ifndef __DIFFTEST_DEF_H__
@@ -20,7 +21,7 @@
 #include <macro.h>
 #include <generated/autoconf.h>
 
-#define __EXPORT __attribute__((visibility("default")))
+#define __EXPORT __attribute__((visibility("default"))) //导出符号, 表示该符号在动态库so中可见. 不过默认就是可见...这是为了鲁棒性吧.
 enum { DIFFTEST_TO_DUT, DIFFTEST_TO_REF };
 
 #if defined(CONFIG_ISA_x86)

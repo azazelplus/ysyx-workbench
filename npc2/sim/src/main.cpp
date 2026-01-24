@@ -30,6 +30,7 @@
 #include "itrace.h"
 #include "mtrace.h"
 #include "ftrace.h"
+#include "difftest.h"
 
 // ============ 仿真配置 ============
 // 默认最大仿真周期数（可通过命令行参数覆盖）
@@ -159,6 +160,11 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    // 初始化 DiffTest (在加载程序后、创建 DUT 前)
+#if ENABLE_DIFFTEST
+    init_difftest(DIFFTEST_REF_PATH, prog_size, mem);
+#endif
+
     // 创建 DUT 实例
     VMiniRV* dut = new VMiniRV;
     
@@ -190,6 +196,8 @@ int main(int argc, char** argv) {
     // 7. 主仿真循环
     uint32_t last_pc = 0;
     uint32_t last_inst = 0;
+    uint32_t prev_pc = 0;      // 用于 DiffTest：上上条指令的 PC
+    bool need_difftest = false; // 标记是否需要在下一周期进行 DiffTest
     
     while (g_cycle < max_cycles && !Verilated::gotFinish()) {
         // 时钟上升沿
@@ -200,7 +208,42 @@ int main(int argc, char** argv) {
         // 更新当前 PC (供 mtrace 使用)
         g_current_pc = dut->io_debug_pc;
         
-        // 指令追踪
+        // 时钟下降沿
+        dut->clock = 0;
+        dut->eval();
+        tfp->dump(g_cycle * 2 + 11);
+        
+        // ====== 在下降沿后处理 DiffTest ======
+        // 此时寄存器写回已经完成，可以安全读取
+#if ENABLE_DIFFTEST
+        if (need_difftest) {
+            // 现在检测上一条指令执行后的状态
+            if (!difftest_step(last_pc, get_cpu_regs())) {
+                // DiffTest 检测到错误
+                printf("\n[DiffTest] ERROR detected at cycle %lu\n", g_cycle);
+                printf("[DiffTest] Last executed instruction at PC = 0x%08x\n", prev_pc);
+                
+                // 显示追踪缓冲区帮助调试
+#if ENABLE_ITRACE
+                itrace.display_ringbuf();
+#endif
+#if ENABLE_MTRACE
+                mtrace.display_ringbuf();
+#endif
+#if ENABLE_FTRACE
+                ftrace.display_ringbuf();
+#endif
+                // 保存波形并退出
+                tfp->close();
+                delete tfp;
+                delete dut;
+                exit(1);
+            }
+            need_difftest = false;
+        }
+#endif
+        
+        // ====== 检测 PC 变化（指令执行完成）======
         if (dut->io_debug_pc != last_pc) {
 #if ENABLE_FTRACE
             // 函数追踪: 传入上一条指令和当前 PC（作为 next_pc）
@@ -213,15 +256,19 @@ int main(int argc, char** argv) {
             // 记录到指令追踪缓冲区
             itrace.write(dut->io_debug_pc, dut->io_debug_inst, g_cycle);
 #endif
+
+#if ENABLE_DIFFTEST
+            // 标记需要在下一周期开始时进行 DiffTest
+            // 延迟一个周期是为了确保寄存器写回完成
+            if (last_pc != 0) {
+                need_difftest = true;
+                prev_pc = last_pc;  // 保存执行的指令 PC 用于错误报告
+            }
+#endif
             
             last_pc = dut->io_debug_pc;
             last_inst = dut->io_debug_inst;
         }
-        
-        // 时钟下降沿
-        dut->clock = 0;
-        dut->eval();
-        tfp->dump(g_cycle * 2 + 11);
         
         g_cycle++;
     }

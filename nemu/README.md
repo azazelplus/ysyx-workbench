@@ -142,7 +142,10 @@ fin.
 
 
 
+## 2.3 nemu用作REF:
 
+
+![alt text](image.png)
 
 
 

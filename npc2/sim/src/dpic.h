@@ -41,6 +41,12 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask);
  */
 extern "C" void set_cpu_reg(int idx, int value);
 
+/**
+ * get_cpu_regs - 获取 CPU 寄存器数组指针 (供 DiffTest 使用)
+ * @return: 指向 32 个通用寄存器数组的指针
+ */
+uint32_t* get_cpu_regs();
+
 // ============ TRAP 处理接口 ============
 
 /**

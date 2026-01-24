@@ -44,6 +44,11 @@ static uint32_t cpu_regs[32] = {0};
 // 全局仿真周期计数（由 main.cpp 定义，此处声明为外部变量）
 extern uint64_t g_cycle;
 
+// 获取 CPU 寄存器数组指针（供 DiffTest 使用）
+uint32_t* get_cpu_regs() {
+    return cpu_regs;
+}
+
 // ============ DPI-C 函数实现 ============
 
 /**

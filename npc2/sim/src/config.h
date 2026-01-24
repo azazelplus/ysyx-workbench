@@ -12,6 +12,16 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
+// ============ DIFFTEST (差分测试) ============
+// 对比 npc2 (DUT) 和 nemu (REF) 的执行结果
+// 需要先编译 nemu 为动态库：cd nemu && make menuconfig (选择 Shared object) && make
+#define ENABLE_DIFFTEST true  // 编译开关
+
+// REF 动态库路径（相对于运行目录或绝对路径）
+// 默认使用 ysyx-workbench/nemu/build/riscv32-nemu-interpreter-so
+// 如果在 am-kernels 目录下运行，需要调整为正确的相对路径
+#define DIFFTEST_REF_PATH "/home/azazel/ysyx-workbench/nemu/build/riscv32-nemu-interpreter-so"
+
 // ============ ITRACE (指令追踪) ============
 #define ENABLE_ITRACE   true  // 编译开关
 #define REALTIME_ITRACE false // 实时打印模式
