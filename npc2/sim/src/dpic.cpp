@@ -4,6 +4,9 @@
  * 实现硬件-软件协作仿真的 DPI-C 接口，包括存储器操作、寄存器同步和 TRAP 处理
  ***************************************************************************************/
 
+// 配置文件（必须在其他 trace 头文件之前 include）
+#include "config.h"
+
 #include "dpic.h"
 #include "itrace.h"
 #include "mtrace.h"
@@ -125,9 +128,15 @@ extern "C" void ebreak_handler() {
     } else {
         printf("[ERROR] HIT BAD TRAP (a0 = %d)\n", exit_code);
         // BAD TRAP 时显示追踪缓冲区
+#if ENABLE_ITRACE
         itrace.display_ringbuf();
+#endif
+#if ENABLE_MTRACE
         mtrace.display_ringbuf();
+#endif
+#if ENABLE_FTRACE
         ftrace.display_ringbuf();
+#endif
     }
     exit(exit_code);
 }

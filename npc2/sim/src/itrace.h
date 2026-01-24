@@ -2,9 +2,13 @@
  * itrace.h - 指令执行追踪 (Instruction Trace) for NPC2
  * 
  * 功能：
- * 1. 实时打印每条指令执行信息（模式可选）
- * 2. 记录最近执行的 N 条指令到环形缓冲区
+ * 1. 实时打印每条指令执行信息（REALTIME模式）
+ * 2. 记录最近执行的 N 条指令到环形缓冲区（非REALTIME模式）
  * 3. 程序崩溃或超时时显示环形缓冲区的指令历史，方便调试
+ * 
+ * 配置（在 main.cpp 中）：
+ * - ENABLE_ITRACE: 编译时开关，false 时整个功能不编译
+ * - REALTIME_ITRACE: 运行时模式，true=实时打印，false=环形缓冲区
  ***************************************************************************************/
 
 #ifndef __ITRACE_H__
@@ -13,6 +17,14 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+
+// 配置应在 config.h 中定义，并在 include 此文件前先 include config.h
+#ifndef ENABLE_ITRACE
+#error "Please include config.h before itrace.h"
+#endif
+
+#if ENABLE_ITRACE
+
 #include <string>
 
 // 环形缓冲区大小（指令条数）
@@ -35,8 +47,6 @@ private:
     ITraceEntry entries[ITRACE_BUF_SIZE];  // 环形缓冲区
     int head;                              // 下一个写入位置
     int curr;                              // 最后写入的位置（用于标记出错指令）
-    
-    bool is_enabled;                       // 是否开启追踪
     bool is_realtime;                      // 是否实时打印
 
 public:
@@ -45,7 +55,6 @@ public:
     /**
      * 配置追踪功能
      */
-    void enable(bool en) { is_enabled = en; }
     void set_realtime(bool real) { is_realtime = real; }
 
     /**
@@ -64,6 +73,18 @@ public:
      */
     void display_ringbuf();
 };
+
+#else  // !ENABLE_ITRACE
+
+// 空实现：当 ENABLE_ITRACE = false 时，编译空壳类以避免链接错误
+class ITrace {
+public:
+    void set_realtime(bool real) {}
+    void write(uint32_t pc, uint32_t inst, uint64_t cycle = 0) {}
+    void display_ringbuf() {}
+};
+
+#endif  // ENABLE_ITRACE
 
 // 全局实例
 extern ITrace itrace;

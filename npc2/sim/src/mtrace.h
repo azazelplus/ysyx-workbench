@@ -2,15 +2,13 @@
  * mtrace.h - 内存访问追踪 (Memory Access Trace) for NPC2
  * 
  * 功能：
- * 1. 记录内存读写操作
- * 2. 支持条件过滤（地址范围、读/写类型）
- * 3. 支持实时打印或仅在错误时输出
+ * 1. 记录内存读写操作到环形缓冲区（非REALTIME模式）
+ * 2. 实时打印每次内存访问（REALTIME模式）
+ * 3. 支持地址范围过滤
  * 
- * 配置宏：
- * - CONFIG_MTRACE: 主开关
- * - MTRACE_REALTIME: 1=实时打印, 0=仅记录到缓冲区
- * - MTRACE_RANGE_ENABLE: 1=启用地址范围过滤
- * - MTRACE_RANGE_START/END: 过滤的地址范围
+ * 配置（在 main.cpp 中）：
+ * - ENABLE_MTRACE: 编译时开关，false 时整个功能不编译
+ * - REALTIME_MTRACE: 运行时模式，true=实时打印，false=环形缓冲区
  ***************************************************************************************/
 
 #ifndef __MTRACE_H__
@@ -19,6 +17,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+
+// 配置应在 config.h 中定义，并在 include 此文件前先 include config.h
+#ifndef ENABLE_MTRACE
+#error "Please include config.h before mtrace.h"
+#endif
+
+#if ENABLE_MTRACE
 
 // 环形缓冲区大小
 #define MTRACE_BUF_SIZE 32
@@ -49,8 +54,6 @@ private:
     MTraceEntry entries[MTRACE_BUF_SIZE];
     int head;
     int curr;
-    
-    bool is_enabled;       // 是否启用
     bool is_realtime;      // 是否实时打印
 
     // 地址过滤配置
@@ -70,7 +73,6 @@ public:
     /**
      * 配置追踪功能
      */
-    void enable(bool en) { is_enabled = en; }
     void set_realtime(bool real) { is_realtime = real; }
     
     /**
@@ -96,6 +98,26 @@ public:
      */
     void display_ringbuf();
 };
+
+#else  // !ENABLE_MTRACE
+
+// 访问类型（即使禁用也需要定义，因为 dpic.cpp 使用）
+enum MTraceType {
+    MTRACE_READ  = 0,
+    MTRACE_WRITE = 1
+};
+
+// 空实现
+class MTrace {
+public:
+    void set_realtime(bool real) {}
+    void set_range_filter(bool en, uint32_t start = 0, uint32_t end = 0) {}
+    void write(uint32_t addr, uint32_t data, uint8_t len, MTraceType type, 
+               uint32_t pc, uint64_t cycle) {}
+    void display_ringbuf() {}
+};
+
+#endif  // ENABLE_MTRACE
 
 // 全局实例
 extern MTrace mtrace;

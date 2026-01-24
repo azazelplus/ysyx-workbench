@@ -31,18 +31,8 @@ void __am_gpu_init() {
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
   window = SDL_CreateWindow("Native Application",
       SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-<<<<<<< HEAD
-#ifdef MODE_800x600
-      W, H,
-#else
-      W * 2, H * 2,
-#endif
-      SDL_WINDOW_OPENGL);
-  surface = SDL_CreateRGBSurface(SDL_SWSURFACE, W, H, 32,
-=======
       WINDOW_W, WINDOW_H, SDL_WINDOW_OPENGL);
   surface = SDL_CreateRGBSurface(SDL_SWSURFACE, disp_w, disp_h, 32,
->>>>>>> ad41f4948e185243ca07f6d2a9ef296f7248d617
       RMASK, GMASK, BMASK, AMASK);
   SDL_AddTimer(1000 / FPS, texture_sync, NULL);
 }
@@ -50,11 +40,7 @@ void __am_gpu_init() {
 void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
   *cfg = (AM_GPU_CONFIG_T) {
     .present = true, .has_accel = false,
-<<<<<<< HEAD
-    .width = W, .height = H,
-=======
     .width = disp_w, .height = disp_h,
->>>>>>> ad41f4948e185243ca07f6d2a9ef296f7248d617
     .vmemsz = 0
   };
 }

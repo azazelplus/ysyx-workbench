@@ -2,19 +2,13 @@
  * ftrace.h - 函数调用追踪 (Function Trace) for NPC2
  * 
  * 功能：
- * 1. 解析 ELF 文件，读取符号表 (.symtab) 和字符串表 (.strtab)
- * 2. 识别 RISC-V 的函数调用 (jal/jalr) 和返回 (ret) 指令
- * 3. 输出函数调用栈，显示调用层次
+ * 1. 解析 ELF 文件获取函数符号表
+ * 2. 追踪 jal/jalr/ret 指令，记录函数调用/返回
+ * 3. 实时打印（REALTIME模式）或环形缓冲区（非REALTIME模式）
  * 
- * ELF 解析流程：
- * 1. 读取 ELF Header，获取 Section Header Table 的位置
- * 2. 遍历 Section Header，找到 .symtab (符号表) 和 .strtab (字符串表)
- * 3. 从符号表中提取所有 STT_FUNC 类型的符号（函数）
- * 4. 运行时根据 PC 地址查找对应的函数名
- * 
- * RISC-V 函数调用识别：
- * - 函数调用: jal rd, offset (rd != x0) 或 jalr rd, rs1, offset (rd != x0)
- * - 函数返回: jalr x0, ra, 0 (即 ret 伪指令，rd=x0, rs1=x1)
+ * 配置（在 main.cpp 中）：
+ * - ENABLE_FTRACE: 编译时开关，false 时整个功能不编译
+ * - REALTIME_FTRACE: 运行时模式，true=实时打印，false=环形缓冲区
  ***************************************************************************************/
 
 #ifndef __FTRACE_H__
@@ -23,6 +17,14 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+
+// 配置应在 config.h 中定义，并在 include 此文件前先 include config.h
+#ifndef ENABLE_FTRACE
+#error "Please include config.h before ftrace.h"
+#endif
+
+#if ENABLE_FTRACE
+
 #include <vector>
 #include <string>
 
@@ -71,8 +73,7 @@ private:
     int curr;
     
     // 配置
-    bool is_enabled;
-    bool is_realtime;
+    bool is_realtime;   // 是否实时打印
     
     // 调用深度
     int call_depth;
@@ -87,9 +88,8 @@ public:
     FTrace();
     
     /**
-     * 配置追踪功能
+     * 配置实时打印模式
      */
-    void enable(bool en) { is_enabled = en; }
     void set_realtime(bool real) { is_realtime = real; }
     
     /**
@@ -118,6 +118,20 @@ public:
      */
     size_t get_symbol_count() const { return symbols.size(); }
 };
+
+#else  // !ENABLE_FTRACE
+
+// 空实现：当 ENABLE_FTRACE = false 时，编译空壳类以避免链接错误
+class FTrace {
+public:
+    void set_realtime(bool real) {}
+    bool init_elf(const char* elf_path) { return false; }
+    void trace(uint32_t pc, uint32_t inst, uint32_t next_pc, uint64_t cycle) {}
+    void display_ringbuf() {}
+    size_t get_symbol_count() const { return 0; }
+};
+
+#endif  // ENABLE_FTRACE
 
 // 全局实例
 extern FTrace ftrace;

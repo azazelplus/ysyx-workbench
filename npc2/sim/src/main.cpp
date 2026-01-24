@@ -9,11 +9,15 @@
  * 
  ***************************************************************************************/
 
+// 配置文件（必须在其他 trace 头文件之前 include）
+#include "config.h"
+
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
+#include <getopt.h>
 
 // Verilator 头文件
 #include "verilated.h"
@@ -26,30 +30,6 @@
 #include "itrace.h"
 #include "mtrace.h"
 #include "ftrace.h"
-
-// ============ 用户配置区域 (Global Config) ============
-
-// --- 指令追踪 (ITrace) ---
-const bool CONF_ITRACE_ENABLE    = true;  // 是否开启指令追踪
-const bool CONF_ITRACE_REALTIME  = false; // 是否实时打印 (false=仅出错时显示)
-
-// --- 内存追踪 (MTrace) ---
-const bool CONF_MTRACE_ENABLE    = true;  // 是否开启内存追踪
-const bool CONF_MTRACE_REALTIME  = false; // 是否实时打印
-const bool CONF_MTRACE_RANGE_EN  = false; // 是否开启地址过滤
-const uint32_t CONF_MTRACE_START = 0x80000000;
-const uint32_t CONF_MTRACE_END   = 0x80001000;
-
-// --- 函数追踪 (FTrace) ---
-const bool CONF_FTRACE_ENABLE    = true;  // 是否开启函数追踪
-const bool CONF_FTRACE_REALTIME  = false; // 是否实时打印
-
-// ==================================================
-
-
-
-// ============ 仿真配置 ============
-// 默认最大仿真周期数（可通过命令行参数覆盖）
 
 // ============ 仿真配置 ============
 // 默认最大仿真周期数（可通过命令行参数覆盖）
@@ -106,57 +86,78 @@ static long load_program(const char* filename) {
 
 // ============ 仿真主函数 ============
 int main(int argc, char** argv) {
-    // 1. 检查命令行参数
-    if (argc < 2) {
-        printf("Usage: %s <program.bin> [elf_file] [max_cycles]\n", argv[0]);
-        printf("  <program.bin>: Binary program file to load\n");
-        printf("  [elf_file]:    ELF file for ftrace (optional)\n");
-        printf("  [max_cycles]:  Maximum simulation cycles (default: %d)\n", DEFAULT_MAX_CYCLES);
+    // 默认配置
+    const char *img_file = NULL;
+    const char *elf_file = NULL;
+    int max_cycles = DEFAULT_MAX_CYCLES;
+
+    // 解析命令行参数 (getopt_long)
+    static struct option long_options[] = {
+        {"help",    no_argument,       0, 'h'},
+        {"elf",     required_argument, 0, 'e'},
+        {"cycles",  required_argument, 0, 'c'},
+        {0, 0, 0, 0}
+    };
+
+    int opt;
+    int option_index = 0;
+    while ((opt = getopt_long(argc, argv, "he:c:", long_options, &option_index)) != -1) {
+        switch (opt) {
+            case 'h':
+                printf("Usage: %s [options] <program.bin>\n", argv[0]);
+                printf("Options:\n");
+                printf("  -e, --elf <file>     ELF file for ftrace\n");
+                printf("  -c, --cycles <num>   Maximum simulation cycles (default: %d)\n", DEFAULT_MAX_CYCLES);
+                printf("  -h, --help           Show this help message\n");
+                return 0;
+            case 'e':
+                elf_file = optarg;
+                break;
+            case 'c':
+                max_cycles = atoi(optarg);
+                break;
+            default:
+                printf("Unknown option: %c\n", opt);
+                return 1;
+        }
+    }
+
+    // 处理位置参数 (image file)
+    if (optind < argc) {
+        img_file = argv[optind];
+    } else {
+        printf("[ERROR] No image file specified!\n");
+        printf("Usage: %s [options] <program.bin>\n", argv[0]);
         return 1;
     }
-    
+
     // 2. 加载程序
-    long prog_size = load_program(argv[1]);
+    long prog_size = load_program(img_file);
     if (prog_size < 0) {
         return 1;
-    }
-    
-    // 3. 解析 ELF 文件和最大仿真周期数
-    const char* elf_file = nullptr;
-    int max_cycles = DEFAULT_MAX_CYCLES;
-    
-    // 检查 argv[2] 是 ELF 文件还是数字
-    if (argc > 2) {
-        // 如果以数字开头，认为是 max_cycles
-        if (argv[2][0] >= '0' && argv[2][0] <= '9') {
-            max_cycles = atoi(argv[2]);
-        } else {
-            elf_file = argv[2];
-            if (argc > 3) {
-                max_cycles = atoi(argv[3]);
-            }
-        }
     }
     
     // 4. 初始化 Verilator
     Verilated::commandArgs(argc, argv);
 
-    // 应用全局配置
-    itrace.enable(CONF_ITRACE_ENABLE);
-    itrace.set_realtime(CONF_ITRACE_REALTIME);
+    // 应用全局配置 - trace功能
+#if ENABLE_ITRACE
+    itrace.set_realtime(REALTIME_ITRACE);
+#endif
 
-    mtrace.enable(CONF_MTRACE_ENABLE);
-    mtrace.set_realtime(CONF_MTRACE_REALTIME);
-    mtrace.set_range_filter(CONF_MTRACE_RANGE_EN, CONF_MTRACE_START, CONF_MTRACE_END);
+#if ENABLE_MTRACE
+    mtrace.set_realtime(REALTIME_MTRACE);
+    mtrace.set_range_filter(MTRACE_RANGE_EN, MTRACE_START, MTRACE_END);
+#endif
 
-    ftrace.enable(CONF_FTRACE_ENABLE);
-    ftrace.set_realtime(CONF_FTRACE_REALTIME);
+#if ENABLE_FTRACE
+    ftrace.set_realtime(REALTIME_FTRACE);
     if (elf_file) {
         ftrace.init_elf(elf_file);
     } else {
         printf("[INFO] No ELF file provided, ftrace disabled\n");
-        ftrace.enable(false);
     }
+#endif
 
     // 创建 DUT 实例
     VMiniRV* dut = new VMiniRV;
@@ -201,13 +202,17 @@ int main(int argc, char** argv) {
         
         // 指令追踪
         if (dut->io_debug_pc != last_pc) {
+#if ENABLE_FTRACE
             // 函数追踪: 传入上一条指令和当前 PC（作为 next_pc）
             if (last_pc != 0) {
                 ftrace.trace(last_pc, last_inst, dut->io_debug_pc, g_cycle);
             }
+#endif
             
+#if ENABLE_ITRACE
             // 记录到指令追踪缓冲区
             itrace.write(dut->io_debug_pc, dut->io_debug_inst, g_cycle);
+#endif
             
             last_pc = dut->io_debug_pc;
             last_inst = dut->io_debug_inst;
@@ -232,10 +237,16 @@ int main(int argc, char** argv) {
     // 检查是否超时
     if (g_cycle >= max_cycles) {
         printf("[ERROR] Simulation timed out!\n");
-        // 超时时在 stdout 显示追踪缓冲区
+        // 超时时显示追踪缓冲区
+#if ENABLE_ITRACE
         itrace.display_ringbuf();
+#endif
+#if ENABLE_MTRACE
         mtrace.display_ringbuf();
+#endif
+#if ENABLE_FTRACE
         ftrace.display_ringbuf();
+#endif
         return 1;
     }
 
