@@ -85,14 +85,15 @@ static long load_program(const char* filename) {
     return read_size;
 }
 
-// ============ 仿真主函数 ============
+// =========================== 仿真主函数 ============================
 int main(int argc, char** argv) {
+
     // 默认配置
     const char *img_file = NULL;
     const char *elf_file = NULL;
     int max_cycles = DEFAULT_MAX_CYCLES;
 
-    // 解析命令行参数 (getopt_long)
+    // 1.解析命令行参数 (getopt_long)
     static struct option long_options[] = {
         {"help",    no_argument,       0, 'h'},
         {"elf",     required_argument, 0, 'e'},
@@ -132,6 +133,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+
     // 2. 加载程序
     long prog_size = load_program(img_file);
     if (prog_size < 0) {
@@ -168,6 +170,9 @@ int main(int argc, char** argv) {
     // 创建 DUT 实例
     VMiniRV* dut = new VMiniRV;
     
+    // 设置 DUT 指针，使 dpic 模块可以直接访问 Verilator 内部信号（用于实时读取寄存器）
+    set_dut_ptr(dut);
+    
     // 波形追踪
     Verilated::traceEverOn(true);
     VerilatedVcdC* tfp = new VerilatedVcdC;
@@ -196,53 +201,21 @@ int main(int argc, char** argv) {
     // 7. 主仿真循环
     uint32_t last_pc = 0;
     uint32_t last_inst = 0;
-    uint32_t prev_pc = 0;      // 用于 DiffTest：上上条指令的 PC
-    bool need_difftest = false; // 标记是否需要在下一周期进行 DiffTest
     
     while (g_cycle < max_cycles && !Verilated::gotFinish()) {
         // 时钟上升沿
         dut->clock = 1;
-        dut->eval();
-        tfp->dump(g_cycle * 2 + 10);
+        dut->eval();    // 计算所有组合逻辑; 触发所有 always @(posedge clock) 块
+        tfp->dump(g_cycle * 2 + 10);    // 波形快照
         
         // 更新当前 PC (供 mtrace 使用)
         g_current_pc = dut->io_debug_pc;
         
         // 时钟下降沿
         dut->clock = 0;
-        dut->eval();
-        tfp->dump(g_cycle * 2 + 11);
-        
-        // ====== 在下降沿后处理 DiffTest ======
-        // 此时寄存器写回已经完成，可以安全读取
-#if ENABLE_DIFFTEST
-        if (need_difftest) {
-            // 现在检测上一条指令执行后的状态
-            if (!difftest_step(last_pc, get_cpu_regs())) {
-                // DiffTest 检测到错误
-                printf("\n[DiffTest] ERROR detected at cycle %lu\n", g_cycle);
-                printf("[DiffTest] Last executed instruction at PC = 0x%08x\n", prev_pc);
-                
-                // 显示追踪缓冲区帮助调试
-#if ENABLE_ITRACE
-                itrace.display_ringbuf();
-#endif
-#if ENABLE_MTRACE
-                mtrace.display_ringbuf();
-#endif
-#if ENABLE_FTRACE
-                ftrace.display_ringbuf();
-#endif
-                // 保存波形并退出
-                tfp->close();
-                delete tfp;
-                delete dut;
-                exit(1);
-            }
-            need_difftest = false;
-        }
-#endif
-        
+        dut->eval();    // 计算所有组合逻辑; 触发所有 always @(negedge clock) 块
+        tfp->dump(g_cycle * 2 + 11);    // 波形快照
+
         // ====== 检测 PC 变化（指令执行完成）======
         if (dut->io_debug_pc != last_pc) {
 #if ENABLE_FTRACE
@@ -258,11 +231,36 @@ int main(int argc, char** argv) {
 #endif
 
 #if ENABLE_DIFFTEST
-            // 标记需要在下一周期开始时进行 DiffTest
-            // 延迟一个周期是为了确保寄存器写回完成
+            // ====== DiffTest：检查指令执行后的状态 ======
+            // last_pc = 刚执行完的指令地址
+            // dut->io_debug_pc = 执行后的新 PC（下一条指令地址）
+            // get_cpu_regs() 直接从 Verilator 读取，是实时的
+            // 
+            // 我们需要比较的是执行后的状态：
+            // - PC 应该是 dut->io_debug_pc（新 PC）
+            // - GPR 应该是当前的寄存器值
             if (last_pc != 0) {
-                need_difftest = true;
-                prev_pc = last_pc;  // 保存执行的指令 PC 用于错误报告
+                if (!difftest_step(dut->io_debug_pc, get_cpu_regs())) {
+                    // DiffTest 检测到错误
+                    printf("\n[DiffTest] ERROR detected at cycle %lu\n", g_cycle);
+                    printf("[DiffTest] Failed instruction at PC = 0x%08x\n", last_pc);
+                    
+                    // 显示追踪缓冲区帮助调试
+#if ENABLE_ITRACE
+                    itrace.display_ringbuf();
+#endif
+#if ENABLE_MTRACE
+                    mtrace.display_ringbuf();
+#endif
+#if ENABLE_FTRACE
+                    ftrace.display_ringbuf();
+#endif
+                    // 保存波形并退出
+                    tfp->close();
+                    delete tfp;
+                    delete dut;
+                    exit(1);
+                }
             }
 #endif
             

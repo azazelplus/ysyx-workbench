@@ -15,6 +15,9 @@
 
 #include <cstdint>
 
+// 前向声明 Verilator 生成的类
+class VMiniRV;
+
 // ============ 存储器接口 ============
 
 /**
@@ -44,8 +47,18 @@ extern "C" void set_cpu_reg(int idx, int value);
 /**
  * get_cpu_regs - 获取 CPU 寄存器数组指针 (供 DiffTest 使用)
  * @return: 指向 32 个通用寄存器数组的指针
+ * 
+ * 【实现方式】直接从 Verilator 内部信号读取寄存器值，实时反映硬件状态
  */
 uint32_t* get_cpu_regs();
+
+/**
+ * set_dut_ptr - 设置 DUT 指针，使 dpic 模块可以直接访问 Verilator 内部信号
+ * @param dut: Verilator 生成的 VMiniRV 实例指针
+ * 
+ * 【调用时机】在 main() 中创建 DUT 实例后立即调用
+ */
+void set_dut_ptr(VMiniRV* dut);
 
 // ============ TRAP 处理接口 ============
 

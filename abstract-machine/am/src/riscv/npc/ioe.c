@@ -1,5 +1,15 @@
 // input/output Emulation
 // 外设模拟.
+/*
+IOE提供三个API:
+bool ioe_init();
+void ioe_read(int reg, void *buf);
+void ioe_write(int reg, void *buf);
+
+abstract-machine/am/include/amdev.h中定义了常见设备的"抽象寄存器"编号和相应的结构.
+
+klib中提供了io_read()和io_write()这两个宏, 它们分别对ioe_read()和ioe_write()这两个API进行了进一步的封装.
+*/ 
 #include <am.h>
 #include <klib-macros.h>
 

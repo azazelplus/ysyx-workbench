@@ -99,6 +99,7 @@ static void exec_once(Decode *s, vaddr_t pc) {
 #endif
 }
 
+// nemu的核心执行函数: 执行n条指令.
 static void execute(uint64_t n) {
   Decode s;
   for (;n > 0; n --) {
@@ -135,7 +136,7 @@ void assert_fail_msg() {
 
 
 /* Simulate how the CPU works. */
-//执行n条指令. 其实就是包装了一下execute(m)函数, 增加了计时和nemu状态机管理.
+//执行n条指令. 其实就是包装了一下execute(n)函数, 增加了计时和nemu状态机管理.
 void cpu_exec(uint64_t n) {
   g_print_step = (n < MAX_INST_TO_PRINT); //打印控制. 若n<10, 打开单步打印模式(打印每一条的反汇编结果)
   //检查当前模拟器状态机状态. 如果是NEMU_END和NEMU_ABORT, 则提示用户需要重启模拟器. 否则将状态机状态设置为NEMU_RUNNING

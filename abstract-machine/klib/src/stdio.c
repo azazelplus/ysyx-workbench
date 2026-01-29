@@ -7,6 +7,11 @@
 
 #define SUPPORT_FPU 0 //目前没有FPU, 无法进行浮点运算.
 
+// putch()函数在nemu的对应架构`trm.c`中实现.
+
+
+
+// printf函数通过复用vsprintf将可变参数转化为字符串, 然后用putch()函数将字符打印到串口.
 int printf(const char *fmt, ...) {
   va_list ap;
   char buffer[1024]; //临时缓冲区, 存放格式化后的字符串.

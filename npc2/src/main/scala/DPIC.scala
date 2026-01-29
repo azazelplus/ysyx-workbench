@@ -153,7 +153,7 @@ class EBREAKDetect extends BlackBox with HasBlackBoxInline {
 class RegFileSync extends BlackBox with HasBlackBoxInline {
   val io = IO(new Bundle {
     val clock = Input(Clock())
-    val regs  = Input(Vec(32, UInt(32.W)))  // 32 个寄存器
+    val regs  = Input(Vec(32, UInt(32.W)))  // 32 个寄存器  
   })
 
   setInline("RegFileSync.sv",

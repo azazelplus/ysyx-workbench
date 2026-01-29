@@ -44,11 +44,24 @@ LDFLAGS   += --gc-sections -e _start
 # 当前的日志地址被设定为: 把日志文件放在与编译产物同一个目录/nemu-log.txt.
 NEMUFLAGS += -b -l $(shell dirname $(IMAGE).elf)/nemu-log.txt
 
+
+
+# 规定参数字符串`mainargs`的最大长度`MAINARGS_MAX_LEN`为64
 MAINARGS_MAX_LEN = 64
+# 这个变量是占位符字符串. 接下来, `insert-arg.py`脚本会搜索到它, 并把真正的命令行参数字符串写入到二进制镜像文件中这个位置.
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
+# 给gcc编译器添加上述两个变量的对应两个宏定义(-Dxxx): MAINARGS_MAX_LEN和MAINARGS_PLACEHOLDER
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
 
-# insert-arg: 顾名思义. 在image目标构建好的image文件中插入main函数命令行参数. 由于insert-arg是伪目标, 所以无论image文件是否存在都会运行python命令.
+
+
+
+# insert-arg: 顾名思义. 在image目标构建好的image文件中插入main函数命令行参数. 由于insert-arg是伪目标, 无论image文件是否存在都会运行python命令.
+# am/src/platform/nemu/trm.c 中定义了:
+#     static const char mainargs[MAINARGS_MAX_LEN] = TOSTRING(MAINARGS_PLACEHOLDER);
+# 也就是利用此处的宏定义, 生成了一个64byte的全局数组, 数组的内容是占位字符串.
+# 使用`insert-arg.py`脚本, 它带着给到的四个参数($(IMAGE).bin文件位置, $(MAINARGS_MAX_LEN), $(MAINARGS_PLACEHOLDER), "$(mainargs)")运行脚本. 
+# 它在bin文件中寻找那个字符串, 然后替换为真正的命令行参数字符串. (保留数组长度为64byte不变, 多余部分补0)
 insert-arg: image
 # 
 	@python $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) $(MAINARGS_PLACEHOLDER) "$(mainargs)"

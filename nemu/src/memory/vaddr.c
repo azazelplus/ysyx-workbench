@@ -21,6 +21,7 @@ word_t vaddr_ifetch(vaddr_t addr, int len) {
   return paddr_read(addr, len);
 }
 
+//目前是个薄包装, 直接转发给paddr_read().
 word_t vaddr_read(vaddr_t addr, int len) {
   return paddr_read(addr, len);
 }

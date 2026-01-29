@@ -13,7 +13,10 @@ void putch(char ch) {
   putchar(ch);
 }
 
+// 停机指令. 接收code作为退出码.
 void halt(int code) {
+
+  //解析code的hex格式, 打印到终端.
   const char *fmt = "Exit code = 40h\n";
   for (const char *p = fmt; *p; p++) {
     char ch = *p;
@@ -22,7 +25,8 @@ void halt(int code) {
     }
     putch(ch);
   }
-  __am_exit_platform(code);
+
+  __am_exit_platform(code); //linux特有函数. 调用exit(code).
   putstr("Should not reach here!\n");
   while (1);
 }

@@ -171,7 +171,9 @@ static void init_platform() {
   // set stdout unbuffered
   setbuf(stdout, NULL);
 
+  // 从环境变量中读取`mainargs`变量, 作为main函数的参数传入.
   const char *args = getenv("mainargs");
+  // halt()来自native/trm.c, 调用linux的exit自杀.
   halt(main(args ? args : "")); // call main here!
 }
 

@@ -3,6 +3,14 @@
 
 // **MAY SUBJECT TO CHANGE IN THE FUTURE**
 
+// perm即permission, 读写权限标志, 目前仅作标记用, 没有实际功能. RD=read, WR=write, WRITE=read/write
+// 第一部分  `enum { AM_##reg = (id) };`  这个单独的匿名enmu等价于`int AM_reg = id;` 生成一个编号.
+// 第二部分  `typedef struct { __VA_ARGS__; } AM_##reg##_T;` 生成一个结构体并取个别名AM_reg_T.
+// 例如:
+// AM_DEVREG( 5, TIMER_RTC,    RD, int year, month, day, hour, minute, second);
+// 宏替换后, 生成: 
+//  一个整数AM_TIMER_RTC:   enmu{AM_TIMER_RTC = 5};(等价于 int AM_TIMER_RTC = 5; ) 
+//  一个结构体类型AM_TIMER_RTC_T: typedef struct { int year, month, day, hour, minute, second; } AM_TIMER_RTC_T;
 #define AM_DEVREG(id, reg, perm, ...) \
   enum { AM_##reg = (id) }; \
   typedef struct { __VA_ARGS__; } AM_##reg##_T;
@@ -11,7 +19,9 @@ AM_DEVREG( 1, UART_CONFIG,  RD, bool present);
 AM_DEVREG( 2, UART_TX,      WR, char data);
 AM_DEVREG( 3, UART_RX,      RD, char data);
 AM_DEVREG( 4, TIMER_CONFIG, RD, bool present, has_rtc);
+//AM_TIMER_RTC, 可读出当前的年月日时分秒. PA中暂不使用.
 AM_DEVREG( 5, TIMER_RTC,    RD, int year, month, day, hour, minute, second);
+//AM_TIMER_UPTIME, AM系统启动时间, 可读出系统启动后的微秒数. 它也是一个RTC(时间流逝速率和真实时间一致), 只不过是从0开始数的
 AM_DEVREG( 6, TIMER_UPTIME, RD, uint64_t us);
 AM_DEVREG( 7, INPUT_CONFIG, RD, bool present);
 AM_DEVREG( 8, INPUT_KEYBRD, RD, bool keydown; int keycode);

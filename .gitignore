@@ -28,18 +28,22 @@
 # 允许进入所有文件夹进行探测
 !*/ 
 
-
+# 要追踪的目录
 !/nemu/
 !/abstract-machine/
 !/nanos-lite/
 !/navy-apps/
 !/npc/
 !/npc2/
+!/test/ldtest
 
+# 要追踪的顶层文件
 !.gitignore
 !Makefile
 !README.md
 !init.sh
+
+# 以防万一再次确认要忽略的目录
 /fceux-am
 /nvboard
 /am-kernels

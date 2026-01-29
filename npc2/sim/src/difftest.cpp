@@ -34,23 +34,22 @@
 #include <dlfcn.h>
 #include <cassert>
 
-// ============ REF API 函数指针 ============
-// 这些函数在 REF (nemu.so) 中实现，通过 dlsym 动态获取
-
-// 初始化 REF
+// ====================== REF API 函数指针. ======================
+// 声明5个REF动态库的函数指针接口.(暂时未nullptr, init_difftest()函数会从给定.so来获取.) 这些函数在 REF (riscv32-nemu-interpreter.so) 中实现,通过 dlsym 获取.
+/*
+* 【API 接口说明】 `ref_difftest_xxx`指针一一对应来自REF提供的`difftest_xxx`函数.
+* 1. difftest_init(port)       - 初始化 REF 环境（内存、ISA 状态）
+* 2. difftest_memcpy(...)      - DUT 与 REF 之间的内存拷贝
+* 3. difftest_regcpy(...)      - DUT 与 REF 之间的寄存器拷贝
+* 4. difftest_exec(n)          - 让 REF 执行 n 条指令
+* 5. difftest_raise_intr(NO)   - 在 REF 中触发中断
+*/
 static void (*ref_difftest_init)(int port) = nullptr;
-
-// DUT 与 REF 内存拷贝
 static void (*ref_difftest_memcpy)(uint32_t addr, void *buf, size_t n, bool direction) = nullptr;
-
-// DUT 与 REF 寄存器拷贝
 static void (*ref_difftest_regcpy)(void *dut, bool direction) = nullptr;
-
-// 让 REF 执行 n 条指令
 static void (*ref_difftest_exec)(uint64_t n) = nullptr;
-
-// 在 REF 中触发中断
 static void (*ref_difftest_raise_intr)(uint64_t NO) = nullptr;
+
 
 // ============ 状态变量 ============
 // 是否跳过下一次 REF 执行（用于处理特殊指令）
@@ -65,19 +64,20 @@ static const char *reg_names[32] = {
 };
 
 /***************************************************************************************
- * init_difftest - 初始化 DiffTest 框架
- * 
- * 【执行步骤】
- * 1. dlopen() 加载 REF 动态库
- * 2. dlsym() 获取 5 个 API 函数指针
- * 3. ref_difftest_init() 初始化 REF 内部状态
- * 4. ref_difftest_memcpy() 将 DUT 程序镜像同步到 REF 内存
- * 5. ref_difftest_regcpy() 将 DUT 初始寄存器同步到 REF
+init_difftest()函数: 加载动态库,用dlsym获取.so库的5个difftest函数指针, 并初始化mem.
+ * 【执行流程】
+
+ * 【参数说明】
+ * @param ref_so_file: REF 动态库文件路径
+ * @param img_size: 程序镜像大小 (字节)
+ * @param mem: DUT 内存起始地址
+ * 【返回值】
+ * 无
  ***************************************************************************************/
 void init_difftest(const char *ref_so_file, long img_size, uint8_t *mem) {
     printf("[DiffTest] Initializing with REF: %s\n", ref_so_file);
     
-    // 步骤 1: 加载 REF 动态库
+    // 步骤 1: 加载 REF 动态库. dlopen()
     void *handle = dlopen(ref_so_file, RTLD_LAZY);
     if (!handle) {
         printf("[DiffTest] ERROR: Failed to load REF library: %s\n", dlerror());
@@ -88,7 +88,9 @@ void init_difftest(const char *ref_so_file, long img_size, uint8_t *mem) {
     }
     
     // 步骤 2: 获取 API 函数指针
-    // 使用 dlsym 从动态库中查找符号
+    // 使用 dlsym(要查找的动态库句柄, "要查找的符号名字") 从动态库中查找符号. 返回值为对应符号的地址(函数指针).
+    // 强制类型转换: `(void (*)(int))` 将dlsym返回的符号解释为一个 `参数为int, 返回值为void的函数指针` .
+    // 1. difftest_init(), 来自
     ref_difftest_init = (void (*)(int))dlsym(handle, "difftest_init");
     assert(ref_difftest_init && "Failed to find difftest_init in REF");
     
@@ -103,8 +105,9 @@ void init_difftest(const char *ref_so_file, long img_size, uint8_t *mem) {
     
     ref_difftest_raise_intr = (void (*)(uint64_t))dlsym(handle, "difftest_raise_intr");
     assert(ref_difftest_raise_intr && "Failed to find difftest_raise_intr in REF");
+  
     
-    // 步骤 3: 初始化 REF
+    // 步骤 3: 初始化 REF (nemu)
     ref_difftest_init(0);
     
     // 步骤 4: 同步内存 (DUT → REF)
@@ -123,20 +126,19 @@ void init_difftest(const char *ref_so_file, long img_size, uint8_t *mem) {
     printf("[DiffTest] REF loaded successfully, img_size = %ld bytes\n", img_size);
 }
 
+
+
 /***************************************************************************************
  * difftest_step - 执行一步差分测试
- * 
  * 【执行流程】
  * 1. 检查是否需要跳过 REF (处理特殊指令)
  * 2. 让 REF 执行 1 条指令
  * 3. 从 REF 读取寄存器状态
  * 4. 比较 DUT 和 REF 的 32 个 GPR 及 PC
  * 5. 不一致时打印详细错误并返回 false
- * 
  * 【参数说明】
  * @param pc:   DUT 当前指令的 PC（执行后的新 PC 值）
  * @param regs: DUT 当前的 32 个通用寄存器值
- * 
  * 【返回值】
  * true  = 比较通过，DUT 和 REF 状态一致
  * false = 检测到差异，DUT 实现可能有 bug
@@ -146,7 +148,7 @@ bool difftest_step(uint32_t pc, uint32_t *regs) {
     if (is_skip_ref) {
         // 将 DUT 状态直接同步到 REF，不执行 REF
         uint32_t dut_regs[33];
-        memcpy(dut_regs, regs, 32 * sizeof(uint32_t));
+        memcpy(dut_regs, regs, 32 * sizeof(uint32_t));  //
         dut_regs[32] = pc;
         ref_difftest_regcpy(dut_regs, DIFFTEST_TO_REF);
         is_skip_ref = false;
@@ -157,9 +159,9 @@ bool difftest_step(uint32_t pc, uint32_t *regs) {
     // 让 REF 执行 1 条指令
     ref_difftest_exec(1);
     
-    // 从 REF 读取执行后的寄存器状态
-    uint32_t ref_regs[33];  // 32 GPRs + PC
-    ref_difftest_regcpy(ref_regs, DIFFTEST_TO_DUT);
+    // 读取REF的执行后的寄存器状态
+    uint32_t ref_regs[33];  // 临时数组, 存放REF的 32 GPRs + PC
+    ref_difftest_regcpy(ref_regs, DIFFTEST_TO_DUT); //将nemu的33个寄存器状态(存在全局变量cpu中)读取到ref_regs数组中.
     
     // 比较 32 个通用寄存器
     bool match = true;
@@ -225,7 +227,9 @@ void difftest_skip_ref() {
 }
 
 #else
-// ENABLE_DIFFTEST = false 时的空实现（编译优化）
+// ============ ENABLE_DIFFTEST = 0 时的空实现（编译占位）============
+// 当 DiffTest 关闭时，提供空函数体使链接通过
+#include <cstdint>
 void init_difftest(const char *ref_so_file, long img_size, uint8_t *mem) {}
 bool difftest_step(uint32_t pc, uint32_t *regs) { return true; }
 void difftest_skip_ref() {}

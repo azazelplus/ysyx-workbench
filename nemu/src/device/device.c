@@ -1,16 +1,7 @@
 /***************************************************************************************
-* Copyright (c) 2014-2022 Zihao Yu, Nanjing University
-*
-* NEMU is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
+SDL(Simple DirectMedia Layer)库相关代码.
+SDL是一个跨平台的多媒体开发库, 提供对音频、键盘、鼠标、游戏手柄、3D硬件(通过OpenGL和Direct3D)和2D视频帧缓冲的低级访问.
+在NEMU中, SDL主要用于实现图形显示和键盘输入功能.
 ***************************************************************************************/
 
 #include <common.h>

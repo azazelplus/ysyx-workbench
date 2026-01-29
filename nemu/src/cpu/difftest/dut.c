@@ -1,4 +1,10 @@
 /***************************************************************************************
+* 本文件为 nemu作为DUT 的代码实现. 
+* 大体做的事就是从提供的.so动态库(也就是作为REF的QEMU/Spike)中, 用dlopen()拿到动态库句柄, 然后用dlsym()从句柄中拿到五个difftest用的函数(每个支持当REF端的模拟器, 必须实现这五个函数供DUT端调用). 
+* 命名风格: 要作为REF的模拟器自己实现的五个api被称为difftest_xxx(), 而作为DUT去调用REF的.so库时, 拿出来的这些函数指针变量被重命名为 ref_difftest_xxx .
+* 
+* nemu作为REF端的代码实现见 nemu/src/cpu/difftest/ref.c 
+* 
 * ============================== DiffTest 框架说明 ==============================
 * 
 * DiffTest 是一种差分测试框架，用于验证 DUT (Device Under Test) 的正确性。
@@ -199,7 +205,8 @@ void init_difftest(char *ref_so_file, long img_size, int port) {
   ref_difftest_raise_intr = dlsym(handle, "difftest_raise_intr");
   assert(ref_difftest_raise_intr);
 
-  // API 5: 初始化 REF
+  // API 5: 初始化 REF.  用 dlsym 函数从
+  // `void (*ref_difftest_init)(int)`  函数指针的声明: 这是一个void(*)(int)类型的变量(即一个返回值为void, 参数为int的函数指针).
   void (*ref_difftest_init)(int) = dlsym(handle, "difftest_init");
   assert(ref_difftest_init);
 

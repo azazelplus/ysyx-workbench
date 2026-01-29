@@ -1,19 +1,6 @@
 /***************************************************************************************
-* Copyright (c) 2014-2022 Zihao Yu, Nanjing University
-*
-* NEMU is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
-riscv32 ISA 的指令解码与执行.
+riscv32 ISA 的指令解码与执行. IDU+EXU
 ***************************************************************************************/
-
 
 
 /*********************************************************************************
@@ -22,7 +9,6 @@ int x : 5;
 上述语句定义int类型变量x,
 它在逻辑上占用5bit. 即, 编译器只会解释x的低5bit, 高位会被忽略. 但是物理存储上C语言还是会给x分配4字节(32bit)的空间...
 **********************************************************************************/
-
 
 
 
@@ -50,7 +36,6 @@ int y =
 });
 上述代码等价于int y = 30;
 **********************************************************************************/
-
 
 #include "local-include/reg.h"
 #include <cpu/cpu.h>
@@ -139,7 +124,7 @@ static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_
 
 
 
-// decode_exec()是指令解码与执行函数. 
+// decode_exec()是指令 解码+执行 
 // 接收要解码的Decode结构体s.
 // tips: Decode结构体的内容:  s->pc是当前指令的PC, s->snpc是静态下一条指令的PC(PC+4), s->dnpc是动态下一条指令的PC.
 static int decode_exec(Decode *s) {

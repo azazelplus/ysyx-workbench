@@ -4,7 +4,19 @@
 #define ROUNDUP(a, sz)      ((((uintptr_t)a) + (sz) - 1) & ~((sz) - 1))
 #define ROUNDDOWN(a, sz)    ((((uintptr_t)a)) & ~((sz) - 1))
 #define LENGTH(arr)         (sizeof(arr) / sizeof((arr)[0]))
+
+//RANGE宏: 用来把两个地址包装成一个Area结构体.
+//例如 trm.c中堆区域的定义: Area heap = RANGE(&_heap_start, PMEM_END);
+//展开就是:
+/*
+Area heap = (Area){
+  .start = (void *)&_heap_start,
+  .end   = (void *)PMEM_END
+};
+*/
 #define RANGE(st, ed)       (Area) { .start = (void *)(st), .end = (void *)(ed) }
+
+// IN_RANGE宏: 检查指针ptr是否在area定义的区域内.
 #define IN_RANGE(ptr, area) ((area).start <= (ptr) && (ptr) < (area).end)
 
 #define STRINGIFY(s)        #s
