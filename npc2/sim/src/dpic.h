@@ -68,4 +68,13 @@ void set_dut_ptr(VMiniRV* dut);
  */
 extern "C" void ebreak_handler();
 
+// ============ 外设初始化接口 ============
+
+/**
+ * init_device - 初始化外设（串口、时钟等）
+ * 
+ * 【调用时机】在仿真开始前调用，记录系统启动时间
+ */
+void init_device();
+
 #endif // __DPIC_H__

@@ -37,4 +37,7 @@
 #define MTRACE_START    0x80000000 // 过滤起始地址
 #define MTRACE_END      0x80001000 // 过滤结束地址
 
+// ============ DTRACE (设备访问追踪) ============
+#define ENABLE_DTRACE   false  // 编译开关
+
 #endif /* __CONFIG_H__ */

@@ -23,6 +23,11 @@
 #error "Please include config.h before mtrace.h"
 #endif
 
+// 运行时条件表达式，默认为始终打印
+#ifndef CONFIG_MTRACE_COND_EXPR
+#define CONFIG_MTRACE_COND_EXPR true
+#endif
+
 #if ENABLE_MTRACE
 
 // 环形缓冲区大小

@@ -1,30 +1,9 @@
 /***************************************************************************************
  * ftrace.cpp - 函数调用追踪 (Function Trace) 实现 for NPC2
- * 
- * ELF 文件结构（简化）：
- * +------------------+
- * | ELF Header       |  <- 文件开头，包含魔数、架构信息、Section Header Table 位置
- * +------------------+
- * | Program Headers  |  <- 描述如何加载程序到内存（这里不需要）
- * +------------------+
- * | .text            |  <- 代码段
- * | .data            |  <- 数据段
- * | .symtab          |  <- 符号表（我们需要的）
- * | .strtab          |  <- 字符串表（符号名存储在这里）
- * | ...              |
- * +------------------+
- * | Section Headers  |  <- 描述各个 Section 的位置和大小
- * +------------------+
- * 
- * 解析步骤：
- * 1. 读取 ELF Header，获取 e_shoff (Section Header Table 偏移) 和 e_shstrndx (Section 名字符串表索引)
- * 2. 读取 Section Header Table
- * 3. 找到 .symtab 和 .strtab
- * 4. 从 .symtab 读取所有 STT_FUNC 类型的符号
  ***************************************************************************************/
 
 #include "config.h"
-#include "ftrace.h"
+#include "trace/ftrace.h"
 
 // 全局实例
 FTrace ftrace;
@@ -124,44 +103,142 @@ static bool parse_elf32(FILE* fp, std::vector<FuncSymbol>& symbols) {
     return true;
 }
 
-// ============ FTrace 类实现 ============
+/**
+ * 读取 ELF64 文件的符号表.
+ */
+static bool parse_elf64(FILE* fp, std::vector<FuncSymbol>& symbols) {
+    Elf64_Ehdr ehdr;
+    
+    // 1. 读取 ELF Header
+    fseek(fp, 0, SEEK_SET);
+    if (fread(&ehdr, sizeof(ehdr), 1, fp) != 1) {
+        return false;
+    }
+    
+    // 验证 ELF 魔数
+    if (memcmp(ehdr.e_ident, ELFMAG, SELFMAG) != 0) {
+        return false;
+    }
+    
+    // 验证是 64 位 ELF
+    if (ehdr.e_ident[EI_CLASS] != ELFCLASS64) {
+        return false;
+    }
+    
+    // 2. 读取 Section Header Table
+    std::vector<Elf64_Shdr> shdrs(ehdr.e_shnum);
+    fseek(fp, ehdr.e_shoff, SEEK_SET);
+    if (fread(shdrs.data(), sizeof(Elf64_Shdr), ehdr.e_shnum, fp) != ehdr.e_shnum) {
+        return false;
+    }
+    
+    // 3. 读取 Section 名字符串表（用于找到 .symtab 和 .strtab）
+    Elf64_Shdr& shstrtab = shdrs[ehdr.e_shstrndx];
+    std::vector<char> shstrtab_data(shstrtab.sh_size);
+    fseek(fp, shstrtab.sh_offset, SEEK_SET);
+    if (fread(shstrtab_data.data(), 1, shstrtab.sh_size, fp) != shstrtab.sh_size) {
+        return false;
+    }
+    
+    // 4. 查找 .symtab 和 .strtab
+    Elf64_Shdr* symtab = nullptr;
+    Elf64_Shdr* strtab = nullptr;
+    
+    for (size_t i = 0; i < shdrs.size(); i++) {
+        const char* name = &shstrtab_data[shdrs[i].sh_name];
+        if (strcmp(name, ".symtab") == 0) {
+            symtab = &shdrs[i];
+        } else if (strcmp(name, ".strtab") == 0) {
+            strtab = &shdrs[i];
+        }
+    }
+    
+    if (!symtab || !strtab) {
+        return false;
+    }
+    
+    // 5. 读取字符串表
+    std::vector<char> strtab_data(strtab->sh_size);
+    fseek(fp, strtab->sh_offset, SEEK_SET);
+    if (fread(strtab_data.data(), 1, strtab->sh_size, fp) != strtab->sh_size) {
+        return false;
+    }
+    
+    // 6. 读取符号表，提取函数符号
+    size_t sym_count = symtab->sh_size / sizeof(Elf64_Sym);
+    std::vector<Elf64_Sym> syms(sym_count);
+    fseek(fp, symtab->sh_offset, SEEK_SET);
+    if (fread(syms.data(), sizeof(Elf64_Sym), sym_count, fp) != sym_count) {
+        return false;
+    }
+    
+    // 7. 筛选函数符号 (STT_FUNC)
+    for (const auto& sym : syms) {
+        if (ELF64_ST_TYPE(sym.st_info) == STT_FUNC && sym.st_size > 0) {
+            FuncSymbol fs;
+            fs.addr = sym.st_value;
+            fs.size = sym.st_size;
+            fs.name = &strtab_data[sym.st_name];
+            symbols.push_back(fs);
+        }
+    }
+    
+    return true;
+}
 
-//构造函数
-FTrace::FTrace() 
-    : head(0), curr(-1), is_realtime(false), call_depth(0) {
+/**
+ * parse_elf - 解析 ELF 文件，填充函数符号表
+ */
+static bool parse_elf(const char* elf_path, std::vector<FuncSymbol>& symbols) {
+    FILE* fp = fopen(elf_path, "rb");
+    if (!fp) {
+        printf("[ftrace] Failed to open ELF file: %s\n", elf_path);
+        return false;
+    }
+    
+    // 尝试解析 ELF32, 如果失败再试 ELF64
+    bool ok = parse_elf32(fp, symbols);
+    if (!ok) {
+        ok = parse_elf64(fp, symbols);
+    }
+    
+    fclose(fp);
+    return ok;
+}
+
+FTrace::FTrace() : head(0), curr(-1), is_realtime(false), call_depth(0) {
     for (int i = 0; i < FTRACE_BUF_SIZE; i++) {
         entries[i].valid = false;
     }
+}
+
+/**
+ * find_func - 根据地址查找函数名
+ */
+const char* FTrace::find_func(uint32_t addr) {
+    for (const auto& sym : symbols) {
+        uint32_t start = sym.addr;
+        uint32_t end = sym.addr + sym.size;
+        if (addr >= start && addr < end) {
+            return sym.name.c_str();
+        }
+    }
+    return "<unknown>";
 }
 
 bool FTrace::init_elf(const char* elf_path) {
     if (!elf_path || strlen(elf_path) == 0) {
         return false;
     }
-    
-    FILE* fp = fopen(elf_path, "rb");
-    if (!fp) {
-        printf("[ftrace] Cannot open ELF file: %s\n", elf_path);
-        return false;
-    }
-    
-    bool result = parse_elf32(fp, symbols);
-    fclose(fp);
-    
-    if (result) {
-        printf("[ftrace] Loaded %zu function symbols from %s\n", symbols.size(), elf_path);
-    }
-    
-    return result;
-}
 
-const char* FTrace::find_func(uint32_t addr) {
-    for (const auto& sym : symbols) {
-        if (addr >= sym.addr && addr < sym.addr + sym.size) {
-            return sym.name.c_str();
-        }
+    symbols.clear();
+    bool ok = parse_elf(elf_path, symbols);
+    if (ok) {
+        printf("[ftrace] Loaded %zu function symbols from %s\n", symbols.size(), elf_path);
+    } else {
+        printf("[ftrace] Failed to load symbols from %s\n", elf_path);
     }
-    return "???";
+    return ok;
 }
 
 void FTrace::format_log(char *buf, size_t size, const FTraceEntry &e) {
@@ -180,9 +257,10 @@ void FTrace::format_log(char *buf, size_t size, const FTraceEntry &e) {
     }
 }
 
-
 // trace方法: 追踪一条指令, 判断是否为call/ret, 如果是则记录.
 void FTrace::trace(uint32_t pc, uint32_t inst, uint32_t next_pc, uint64_t cycle) {
+    if (!(CONFIG_FTRACE_COND_EXPR)) return;
+
     // RISC-V 指令解码
     uint32_t opcode = inst & 0x7F;
     uint32_t rd = (inst >> 7) & 0x1F;
@@ -276,6 +354,8 @@ void FTrace::display_ringbuf() {
         }
     }
     
-    printf("========== End of Function Trace (%d records) ==========\n", count);
+    printf("========== End of Function Trace (%d records) ==========" "\n", count);
 }
-#endif  // ENABLE_FTRACE
+
+#endif // ENABLE_FTRACE
+

@@ -27,9 +27,10 @@
 // 模块头文件
 #include "dpic.h"
 #include "disasm.h"
-#include "itrace.h"
-#include "mtrace.h"
-#include "ftrace.h"
+#include "trace/itrace.h"
+#include "trace/mtrace.h"
+#include "trace/ftrace.h"
+#include "trace/dtrace.h"
 #include "difftest.h"
 
 // ============ 仿真配置 ============
@@ -172,6 +173,9 @@ int main(int argc, char** argv) {
     
     // 设置 DUT 指针，使 dpic 模块可以直接访问 Verilator 内部信号（用于实时读取寄存器）
     set_dut_ptr(dut);
+    
+    // 初始化外设（串口、时钟等）
+    init_device();
     
     // 波形追踪
     Verilated::traceEverOn(true);

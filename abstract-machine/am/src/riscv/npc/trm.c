@@ -14,7 +14,7 @@ extern char _pmem_start;
 
 
 // 串口的内存映射地址.
-#define SERIAL_PORT 0xa00003f8
+#define SERIAL_PORT 0x10000000
 
 // 堆区间定义.
 Area heap = RANGE(&_heap_start, PMEM_END);

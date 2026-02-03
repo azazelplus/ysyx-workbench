@@ -8,17 +8,19 @@
 #include "config.h"
 
 #include "dpic.h"
-#include "itrace.h"
-#include "mtrace.h"
-#include "ftrace.h"
+#include "trace/itrace.h"
+#include "trace/mtrace.h"
+#include "trace/ftrace.h"
+#include "trace/dtrace.h"
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>       // 用于时钟功能
 
 // Verilator 生成的头文件（用于直接访问内部信号）
 #include "VMiniRV.h"
 #include "VMiniRV___024root.h"
 
-// ============ 存储器定义 ============
+// ========================== 存储器定义 ==============================
 // 存储器大小：128MB
 #define MEM_SIZE (128 * 1024 * 1024)
 
@@ -40,6 +42,38 @@ static inline bool addr_valid(uint32_t addr) {
 static inline uint32_t addr_to_index(uint32_t addr) {
     return addr - MEM_BASE;
 }
+
+// ================================ MMIO 外设地址定义 ===================================
+// 串口地址（与 SoC 保持一致）
+#define SERIAL_PORT 0x10000000UL
+
+// 时钟地址（与 NEMU 保持一致）
+#define RTC_ADDR    0xa0000048UL
+
+// 系统启动时间（用于计算 uptime）
+static uint64_t g_boot_time = 0;
+
+/***************************************************************************************
+ * get_time_us() - 获取当前系统时间（微秒）
+ * 
+ * @return 当前时间戳，单位为微秒 (us)
+ ***************************************************************************************/
+static uint64_t get_time_us() {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+}
+
+
+/***************************************************************************************
+ * init_device() - 初始化外设
+ * 
+ * 在仿真开始时调用，记录启动时间
+ ***************************************************************************************/
+void init_device() {
+    g_boot_time = get_time_us();
+}
+
 
 // ============ CPU 寄存器访问 ============
 // DUT 指针（由 main.cpp 设置，用于直接访问 Verilator 内部信号）
@@ -107,12 +141,36 @@ uint32_t* get_cpu_regs() {
 
 // ============ DPI-C 函数实现 ============
 
-/**
- * pmem_read - 从存储器读取 32 位数据
- */
+/***************************************************************************************
+ * pmem_read - 从存储器或 MMIO 设备读取 32 位数据
+ * 
+ * @param raddr: 读取的物理地址（会自动对齐到 4 字节边界）
+ * @return 读取到的 32 位数据；对于无效地址返回 0
+ * 
+ * 【MMIO 设备】
+ * - RTC_ADDR (0xa0000048): 返回系统启动后经过的时间
+ *   - 偏移 0: 低 32 位 (us)
+ *   - 偏移 4: 高 32 位 (us)
+ ***************************************************************************************/
 extern "C" uint32_t pmem_read(uint32_t raddr) {
-    uint32_t addr = raddr;
+    uint32_t addr = raddr & ~0x3u;  // 对齐到 4 字节边界
     
+    // -------- MMIO: 时钟 (RTC) --------
+    // 返回系统启动后经过的微秒数
+    if (addr == RTC_ADDR) {
+        uint64_t uptime = get_time_us() - g_boot_time;
+        uint32_t data = (uint32_t)(uptime & 0xFFFFFFFF);  // 低 32 位
+        dtrace.log_read("RTC", addr, data, 4);
+        return data;
+    }
+    if (addr == RTC_ADDR + 4) {
+        uint64_t uptime = get_time_us() - g_boot_time;
+        uint32_t data = (uint32_t)(uptime >> 32);         // 高 32 位
+        dtrace.log_read("RTC", addr, data, 4);
+        return data;
+    }
+    
+    // -------- 普通内存访问 --------
     if (!addr_valid(addr)) {
         // 流水线初始化阶段或非 Load 指令时可能读取无效地址，静默返回 0
         return 0;
@@ -126,18 +184,29 @@ extern "C" uint32_t pmem_read(uint32_t raddr) {
     return data;
 }
 
-/**
- * pmem_write - 向存储器写入数据
- */
+/***************************************************************************************
+ * pmem_write - 向存储器或 MMIO 设备写入数据
+ * 
+ * @param waddr: 写入的物理地址（会自动对齐到 4 字节边界）
+ * @param wdata: 要写入的 32 位数据
+ * @param wmask: 字节写掩码，每个 bit 对应 wdata 中的一个字节
+ *               例如 wmask=0x3 表示只写入最低 2 字节
+ * 
+ * 【MMIO 设备】
+ * - SERIAL_PORT (0x10000000): 串口输出，写入最低字节到终端
+ ***************************************************************************************/
 extern "C" void pmem_write(int waddr, int wdata, char wmask) {
-    uint32_t addr = (uint32_t)waddr;
+    uint32_t addr = (uint32_t)waddr & ~0x3u;  // 对齐到 4 字节边界
     uint32_t data = (uint32_t)wdata;
     uint8_t mask = (uint8_t)wmask & 0x0F;
 
-    // 串行端口输出
-    if (addr == 0xa00003f8) {
+    // -------- MMIO: 串口输出 --------
+    // 将最低字节输出到终端
+    if (addr == SERIAL_PORT) {
         if (mask & 1) {
-            putchar(data & 0xFF);
+            uint8_t ch = data & 0xFF;
+            dtrace.log_write("SERIAL", addr, ch, 1);
+            putchar(ch);
             fflush(stdout);
         }
         return;
@@ -156,6 +225,8 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
     for (int i = 0; i < 4; i++) {
         if (mask & (1 << i)) len++;
     }
+
+    dtrace.log_write("MEM", addr, data, len);
 
     mtrace.write(addr, data, len, MTRACE_WRITE, g_current_pc, g_cycle);
 

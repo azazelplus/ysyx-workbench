@@ -120,6 +120,7 @@ CFLAGS_BUILD += $(if $(CONFIG_CC_ASAN),-fsanitize=address,)
 # 这两行给gcc添加两个宏CONFIG_ITRACE_COND_EXPR和CONFIG_MTRACE_COND_EXPR, 值分别是用户在Kconfig中配置的条件表达式去掉`""`. 之所以不直接用Kconfig工具生成的autoconf.h, 是因为这两个宏需要去掉`""`
 CFLAGS_TRACE += -DCONFIG_ITRACE_COND_EXPR=$(if $(CONFIG_ITRACE_COND),$(call remove_quote,$(CONFIG_ITRACE_COND)),true) 
 CFLAGS_TRACE += -DCONFIG_MTRACE_COND_EXPR=$(if $(CONFIG_MTRACE_COND),$(call remove_quote,$(CONFIG_MTRACE_COND)),true)
+CFLAGS_TRACE += -DCONFIG_DTRACE_COND_EXPR=$(if $(CONFIG_DTRACE_COND),$(call remove_quote,$(CONFIG_DTRACE_COND)),true)
 CFLAGS  += $(CFLAGS_BUILD) $(CFLAGS_TRACE) -D__GUEST_ISA__=$(GUEST_ISA)
 LDFLAGS += $(CFLAGS_BUILD)
 

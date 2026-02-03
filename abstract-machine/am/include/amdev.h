@@ -2,15 +2,21 @@
 #define __AMDEV_H__
 
 // **MAY SUBJECT TO CHANGE IN THE FUTURE**
-
-// perm即permission, 读写权限标志, 目前仅作标记用, 没有实际功能. RD=read, WR=write, WRITE=read/write
-// 第一部分  `enum { AM_##reg = (id) };`  这个单独的匿名enmu等价于`int AM_reg = id;` 生成一个编号.
-// 第二部分  `typedef struct { __VA_ARGS__; } AM_##reg##_T;` 生成一个结构体并取个别名AM_reg_T.
-// 例如:
-// AM_DEVREG( 5, TIMER_RTC,    RD, int year, month, day, hour, minute, second);
-// 宏替换后, 生成: 
-//  一个整数AM_TIMER_RTC:   enmu{AM_TIMER_RTC = 5};(等价于 int AM_TIMER_RTC = 5; ) 
-//  一个结构体类型AM_TIMER_RTC_T: typedef struct { int year, month, day, hour, minute, second; } AM_TIMER_RTC_T;
+/***************************************************************************************
+本头文件用AM_DEVREG宏, 枚举定义了AM的所有抽象设备寄存器(AM Device Registers).
+实际上就是在全局空间用enmu和typedef struct定义了多组寄存器. 每组寄存器用两个全局变量描述:(reg是寄存器名) 
+  * 一个叫做`AM_$(reg)_T`的结构体类型 (T表示Type), 结构体里的成员变量就是该寄存器的各个域(field).
+  * 一个叫做`AM_$(reg)`的整数常量, 表达该reg的编号. 用enum
+ * @param id: 编号数字.
+ * @param reg: 期望是一个寄存器名称字符串, 会被##拼接.
+ * @param ...: 期望得到类似于 `int field1; bool field2;` 这样的成员列表, 用于定义结构体.
+perm=permission, 读写权限标志, 目前仅作标记用, 没有实际功能. RD=read, WR=write, WRITE=read/write
+* 例如:
+* AM_DEVREG( 5, TIMER_RTC,    RD, int year, month, day, hour, minute, second);
+宏替换后, 生成: 
+ * 一个整数AM_TIMER_RTC:   enmu{AM_TIMER_RTC = 5};(等价于 int AM_TIMER_RTC = 5; ) 
+ * 一个结构体类型AM_TIMER_RTC_T: typedef struct { int year, month, day, hour, minute, second; } AM_TIMER_RTC_T;
+*/
 #define AM_DEVREG(id, reg, perm, ...) \
   enum { AM_##reg = (id) }; \
   typedef struct { __VA_ARGS__; } AM_##reg##_T;
@@ -25,11 +31,16 @@ AM_DEVREG( 5, TIMER_RTC,    RD, int year, month, day, hour, minute, second);
 AM_DEVREG( 6, TIMER_UPTIME, RD, uint64_t us);
 AM_DEVREG( 7, INPUT_CONFIG, RD, bool present);
 AM_DEVREG( 8, INPUT_KEYBRD, RD, bool keydown; int keycode);
-AM_DEVREG( 9, GPU_CONFIG,   RD, bool present, has_accel; int width, height, vmemsz);
+
+
+// bstract-machine/am/include/amdev.h中为GPU定义了五个抽象寄存器, 在NEMU中只会用到其中的两个:
+AM_DEVREG( 9, GPU_CONFIG,   RD, bool present, has_accel; int width, height, vmemsz); // AM显示控制器信息, 可读出屏幕大小信息width和height. 另外AM假设系统在运行过程中, 屏幕大小不会发生变化.
 AM_DEVREG(10, GPU_STATUS,   RD, bool ready);
-AM_DEVREG(11, GPU_FBDRAW,   WR, int x, y; void *pixels; int w, h; bool sync);
+AM_DEVREG(11, GPU_FBDRAW,   WR, int x, y; void *pixels; int w, h; bool sync); //  AM帧缓冲控制器, 可写入绘图信息, 向屏幕(x, y)坐标处绘制w*h的矩形图像. 图像像素按行优先方式存储在pixels中, 每个像素用32位整数以00RRGGBB的方式描述颜色. 若sync为true, 则马上将帧缓冲中的内容同步到屏幕上.
 AM_DEVREG(12, GPU_MEMCPY,   WR, uint32_t dest; void *src; int size);
 AM_DEVREG(13, GPU_RENDER,   WR, uint32_t root);
+
+
 AM_DEVREG(14, AUDIO_CONFIG, RD, bool present; int bufsize);
 AM_DEVREG(15, AUDIO_CTRL,   WR, int freq, channels, samples);
 AM_DEVREG(16, AUDIO_STATUS, RD, int count);

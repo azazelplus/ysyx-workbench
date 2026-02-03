@@ -14,7 +14,7 @@ int main(const char *args);
 
  
 /*堆区.
-* Area结构在am/include/am.h中定义: typedef struct {void *start, *end;} Area;
+* Area结构体 在am/include/am.h中定义: typedef struct {void *start, *end;} Area;
 * 这里的RANGE宏用来包装两个地址到一个Area结构体, 展开就是:
     Area heap = (Area){
       .start = (void *)&_heap_start,

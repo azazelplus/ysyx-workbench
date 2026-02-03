@@ -18,8 +18,16 @@
 #include <memory/host.h>
 #include <memory/vaddr.h>
 #include <device/map.h>
+#include <utils.h>
 
 #define IO_SPACE_MAX (2 * 1024 * 1024)
+
+// DTRACE 条件宏定义. 这里的CONFIG_DTRACE直接来自Kconfig生成, 而`CONFIG_DTRACE_COND_EXPR`首先是Kconfig生成的"CONFIG_DTRACE_COND", 然后在nemu/Makefile中脱去括号变成宏(gcc的-D选项注入宏)CONFIG_DTRACE_COND.
+#ifdef CONFIG_DTRACE
+  #define DTRACE_COND CONFIG_DTRACE_COND_EXPR
+#else
+  #define DTRACE_COND false
+#endif
 
 /***************************************************************************************
  * io_space p_space两个全局指针. 分别记录"总基址"和"当前分配位置". 
@@ -53,7 +61,7 @@ static uint8_t *p_space = NULL;   //IO 空间的当前分配指针（指向下�
 
 
 /***************************************************************************************
- * new_space - 为外设分配 MMIO 空间（线性分配器）. 其实干的事情就是移动p_space全局指针.
+ * new_space - 分配新的堆空间. 其实干的事情就是移动p_space, 堆全局指针.
  * 
  * 【分配过程示例】
  * 初始状态：
@@ -145,15 +153,6 @@ static void invoke_callback(io_callback_t c, paddr_t offset, int len, bool is_wr
 
 /***************************************************************************************
  * init_map - 初始化 MMIO 的内存空间.
- * 【执行流程】
- * 1. malloc 分配 2MB 的内存作为统一的 IO 空间
- * 2. 初始化 p_space 指向该空间的起始位置
- * 3. 后续调用 new_space() 时会逐个分配各个设备的空间
- * 
- * 【为什么单独分配 IO 空间而不是用普通物理内存？】
- * - 隔离：IO 空间与程序内存分离，避免意外访问
- * - 灵活性：可以为不同设备的 MMIO 地址安排虚拟地址映射
- * - 模拟真实硬件：硬件中 MMIO 确实是独立的地址空间
  ***************************************************************************************/
 void init_map() {
   io_space = malloc(IO_SPACE_MAX);  //malloc分配2MB内存作为IO空间, 初始化io_space指向这块空间.
@@ -165,19 +164,6 @@ void init_map() {
 
 /***************************************************************************************
  * map_read - 从 MMIO 地址读取数据, 同时调用设备的回调函数.
- * 
- * 【执行流程】
- * 1. 检查读取长度是否有效（1-8 字节）
- * 2. 检查地址是否在设备允许范围内（check_bound）
- * 3. 计算相对于设备基址的偏移
- * 4. 调用设备的 IO 处理函数（如果有的话）
- *    - 这一步可以让设备产生副作用，如更新时间、准备数据等
- * 5. 从 io_space 中读取实际数据
- * 6. 返回读到的数据
- * 
- * 【为什么 callback 在 host_read 之前调用？】
- * 某些设备（如 RTC）需要在读取前更新数据。
- * 例如 rtc_io_handler 在读取高 32 位时会调用 get_time() 更新时间值。
  * 
  * 【参数说明】
  * @param addr: 要读取的物理地址
@@ -193,6 +179,13 @@ word_t map_read(paddr_t addr, int len, IOMap *map) {
   paddr_t offset = addr - map->low;
   invoke_callback(map->callback, offset, len, false); // prepare data to read
   word_t ret = host_read(map->space + offset, len);
+  // Device trace: 记录设备读操作
+  IFDEF(CONFIG_DTRACE,
+    if (DTRACE_COND) {
+      log_write("[DTRACE] READ  %s: addr=" FMT_PADDR ", offset=0x%08x, len=%d, data=" FMT_WORD "\n",
+                map->name, addr, offset, len, ret);
+    }
+  );
   return ret;
 }
 
@@ -223,6 +216,13 @@ void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
   assert(len >= 1 && len <= 8);
   check_bound(map, addr);
   paddr_t offset = addr - map->low;
+  // Device trace: 记录设备写操作
+  IFDEF(CONFIG_DTRACE,
+    if (DTRACE_COND) {
+      log_write("[DTRACE] WRITE %s: addr=" FMT_PADDR ", offset=0x%08x, len=%d, data=" FMT_WORD "\n",
+                map->name, addr, offset, len, data);
+    }
+  );
   host_write(map->space + offset, len, data);
   invoke_callback(map->callback, offset, len, true);
 }

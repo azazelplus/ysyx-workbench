@@ -149,7 +149,7 @@ endmenu
 
 menu "Testing and Debugging"
 
-# 7.1 Global trace configuration
+# 6.1 Global trace configuration
 config TRACE
   bool "Enable tracer"
   default y
@@ -171,7 +171,10 @@ config TRACE_END
     Stop recording trace output after executing N instructions.
     Set to a large number (e.g., 9999999) to record until program ends.
     Limits output size and improves performance.
-
+    
+# ============================================================================
+#  Instruction trace
+# ============================================================================
 menu "Instruction Tracing"
   depends on TRACE
   visible if TRACE
@@ -203,6 +206,10 @@ menu "Instruction Tracing"
       default 16
   endmenu
 endmenu
+
+# ============================================================================
+#  Memory trace
+# ============================================================================
 
 menu "Memory Tracing"
   depends on TRACE
@@ -242,6 +249,31 @@ menu "Memory Tracing"
   endmenu
 endmenu
 
+# ============================================================================
+#  Device trace
+# ============================================================================
+
+menu "Device Tracing"
+  depends on TRACE && DEVICE
+  visible if TRACE && DEVICE
+
+  config DTRACE
+    bool "Enable device access tracer"
+    default n
+    help
+      Enable device (MMIO) access tracing to record read/write operations to devices.
+      Useful for debugging device-related issues.
+
+  config DTRACE_COND
+    depends on DTRACE
+    string "Only trace device access when the condition is true"
+    default "true"
+endmenu
+
+
+# ============================================================================
+#  watchpoint
+# ============================================================================
 config WATCHPOINT
   bool "Enable watchpoint"
   default y
@@ -249,6 +281,9 @@ config WATCHPOINT
     Enable watchpoint to monitor expression value changes.
     When the value of a watched expression changes, NEMU will stop execution.
 
+# ============================================================================
+#  Differential Test
+# ============================================================================
 menu "Differential Testing"
   depends on TARGET_NATIVE_ELF
   visible if TARGET_NATIVE_ELF

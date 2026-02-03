@@ -103,12 +103,27 @@
 #define unlikely(cond) __builtin_expect(cond, 0)
 #endif
 
-// for AM IOE
+
+// -----------------------------------------------------------------------------
+// IOE (Abstract Machine Input/Output Extension) 访问辅助宏. for AM IOE.
+// -----------------------------------------------------------------------------
+// 作用: 读取抽象设备寄存器 `reg` 的内容。
+// 原理: 利用 GCC 的 Statement Expression ({...}) 和 token 拼接功能。
+//      1. 定义一个类型为 `reg##_T` (如 AM_GPU_CONFIG_T) 的临时变量 `__io_param`。
+//      2. 调用底层 `ioe_read` 函数(定义在 nemu/src/device/ioe.c)将硬件状态读入该变量。
+//      3. 返回该结构体变量作为表达式的值。
+// 示例: int w = io_read(AM_GPU_CONFIG).width;
 #define io_read(reg) \
   ({ reg##_T __io_param; \
     ioe_read(reg, &__io_param); \
     __io_param; })
 
+// 宏: io_write(reg, ...)
+// ---------------------------------------------
+// 【输入】 reg: 抽象寄存器名称宏 (例如 AM_GPU_FBDRAW)
+//         ...: 对应结构体的初始化参数列表 (按结构体定义顺序)
+// 【返回】 无 (void)
+// 【示例】 io_write(AM_GPU_FBDRAW, x, y, pixels, w, h, true);
 #define io_write(reg, ...) \
   ({ reg##_T __io_param = (reg##_T) { __VA_ARGS__ }; \
     ioe_write(reg, &__io_param); })

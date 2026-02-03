@@ -1,3 +1,4 @@
+// CTE (Context/Thread/Exception), 上下文切换与异常处理相关的接口实现
 #include <am.h>
 #include <riscv/riscv.h>
 #include <klib.h>

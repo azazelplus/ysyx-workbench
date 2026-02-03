@@ -3,7 +3,7 @@
  ***************************************************************************************/
 
 #include "config.h"
-#include "mtrace.h"
+#include "trace/mtrace.h"
 
 // 全局实例
 MTrace mtrace;
@@ -38,6 +38,8 @@ void MTrace::format_log(char *buf, size_t size, const MTraceEntry &e) {
 void MTrace::write(uint32_t addr, uint32_t data, uint8_t len, MTraceType type, 
            uint32_t pc, uint64_t cycle) {
     
+    if (!(CONFIG_MTRACE_COND_EXPR)) return;
+
     // 范围过滤
     if (!in_range(addr)) return;
 
@@ -82,13 +84,16 @@ void MTrace::display_ringbuf() {
         int idx = (head + i) % MTRACE_BUF_SIZE;
         if (entries[idx].valid) {
             format_log(logbuf, sizeof(logbuf), entries[idx]);
-            const char *marker = (idx == curr) ? " --> " : "     ";
-            printf("%s%s\n", marker, logbuf);
+            if (idx == curr) {
+                printf("--> %s\n", logbuf);
+            } else {
+                printf("    %s\n", logbuf);
+            }
             count++;
         }
     }
 
-    printf("========== End of Memory Trace (%d accesses) ==========\n", count);
+    printf("Total %d memory accesses recorded.\n", count);
 }
 
-#endif  // ENABLE_MTRACE
+#endif // ENABLE_MTRACE

@@ -23,6 +23,11 @@
 #error "Please include config.h before ftrace.h"
 #endif
 
+// 运行时条件表达式，默认为始终打印
+#ifndef CONFIG_FTRACE_COND_EXPR
+#define CONFIG_FTRACE_COND_EXPR true
+#endif
+
 #if ENABLE_FTRACE
 
 #include <vector>

@@ -10,6 +10,7 @@
 !*.cc
 !.gitignore
 !README.md
+!*.md
 !Kconfig
 include/config
 include/generated

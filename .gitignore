@@ -35,7 +35,8 @@
 !/navy-apps/
 !/npc/
 !/npc2/
-!/test/ldtest
+!/test/
+!/test/ldtest/
 
 # 要追踪的顶层文件
 !.gitignore
@@ -43,7 +44,7 @@
 !README.md
 !init.sh
 
-# 以防万一再次确认要忽略的目录
+# 以防万一再次确认要忽略的目录.
 /fceux-am
 /nvboard
 /am-kernels

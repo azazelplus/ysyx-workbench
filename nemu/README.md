@@ -34,14 +34,6 @@ The main features of NEMU include
 * 2 types of I/O
   * port-mapped I/O and memory-mapped I/O
 
-
-
-
-
-
-
-
-
 # 2 开发日志
 
 
@@ -149,10 +141,87 @@ fin.
 
 
 
+## 2.4 因为忘记关掉HAS_GUI也没有补全相应代码就运行测试, 导致发生访问
+
+
+![alt text](image-2.png)
+
+## 2.5 nemu实现Dtrace
+
+
+首先Kconfig加上
+```Kconfig
+# ============================================================================
+#  Device trace
+# ============================================================================
+
+menu "Device Tracing"
+  depends on TRACE && DEVICE
+  visible if TRACE && DEVICE
+
+  config DTRACE
+    bool "Enable device access tracer"
+    default n
+    help
+      Enable device (MMIO) access tracing to record read/write operations to devices.
+      Useful for debugging device-related issues.
+
+  config DTRACE_COND
+    depends on DTRACE
+    string "Only trace device access when the condition is true"
+    default "true"
+endmenu
+```
+
+然后再nemu/Makefile补充宏定义加工:
+```Makefile
+CFLAGS_TRACE += -DCONFIG_DTRACE_COND_EXPR=$(if $(CONFIG_DTRACE_COND),$(call remove_quote,$(CONFIG_DTRACE_COND)),true)
+```
 
 
 
+然后在nemu/src/device/io/map.c中, 添加Dtrace实现代码:
+* 头文件和宏定义;
+* map_read()中添加实现代码
+* map_write()中添加实现代码
+```C
+#include <utils.h>
 
+#define IO_SPACE_MAX (2 * 1024 * 1024)
+
+// DTRACE 条件宏定义. 这里的CONFIG_DTRACE直接来自Kconfig生成, 而`CONFIG_DTRACE_COND_EXPR`首先是Kconfig生成的"CONFIG_DTRACE_COND", 然后在nemu/Makefile中脱去括号变成宏(gcc的-D选项注入宏)CONFIG_DTRACE_COND.
+#ifdef CONFIG_DTRACE
+  #define DTRACE_COND CONFIG_DTRACE_COND_EXPR
+#else
+  #define DTRACE_COND false
+#endif
+
+//...
+
+word_t map_read(paddr_t addr, int len, IOMap *map) {
+  //...
+  // Device trace: 记录设备读操作
+  IFDEF(CONFIG_DTRACE,
+    if (DTRACE_COND) {
+      log_write("[DTRACE] READ  %s: addr=" FMT_PADDR ", offset=0x%08x, len=%d, data=" FMT_WORD "\n",
+                map->name, addr, offset, len, ret);
+    }
+  );
+  //...
+}
+
+void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
+  //...
+  // Device trace: 记录设备写操作
+  IFDEF(CONFIG_DTRACE,
+    if (DTRACE_COND) {
+      log_write("[DTRACE] WRITE %s: addr=" FMT_PADDR ", offset=0x%08x, len=%d, data=" FMT_WORD "\n",
+                map->name, addr, offset, len, data);
+    }
+  );
+  //...
+}
+```
 
 
 

@@ -3,7 +3,7 @@
  ***************************************************************************************/
 
 #include "config.h"
-#include "itrace.h"
+#include "trace/itrace.h"
 
 // 全局实例
 ITrace itrace;
@@ -22,6 +22,8 @@ ITrace::ITrace() : head(0), curr(-1), is_realtime(false) {
  * write - 记录一条指令执行信息
  */
 void ITrace::write(uint32_t pc, uint32_t inst, uint64_t cycle) {
+    if (!(CONFIG_ITRACE_COND_EXPR)) return;
+
     std::string asm_str = disassemble(inst);
     char logbuf[INST_LOG_SIZE];
     snprintf(logbuf, INST_LOG_SIZE,
@@ -79,14 +81,16 @@ void ITrace::display_ringbuf() {
                     (entries[idx].inst >> 16) & 0xFF,
                     (entries[idx].inst >> 24) & 0xFF,
                     asm_str.c_str());
-
-            const char *marker = (idx == curr) ? " --> " : "     ";
-            printf("%s%s\n", marker, logbuf);
+            if (idx == curr) {
+                printf("--> %s\n", logbuf);
+            } else {
+                printf("    %s\n", logbuf);
+            }
             count++;
         }
     }
 
-    printf("========== End of Instruction Trace (%d instructions) ==========\n", count);
+    printf("Total %d instructions recorded.\n", count);
 }
 
-#endif  // ENABLE_ITRACE
+#endif // ENABLE_ITRACE
