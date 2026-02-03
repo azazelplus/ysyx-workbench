@@ -47,7 +47,7 @@ static inline uint32_t addr_to_index(uint32_t addr) {
 // 串口地址（与 SoC 保持一致）
 #define SERIAL_PORT 0x10000000UL
 
-// 时钟地址（与 NEMU 保持一致）
+// 时钟地址. 随便写了一个值哈. pmem_read尝试读这个地址, 发现是RTC_ADDR, 就会调用get_time_us(), 调用linux本机的库函数实现获取时间.
 #define RTC_ADDR    0xa0000048UL
 
 // 系统启动时间（用于计算 uptime）
@@ -238,9 +238,11 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
     }
 }
 
-/**
+/***************************************************
  * set_cpu_reg - 同步单个寄存器值
- */
+    * @param idx: 寄存器编号
+    * @param value: 寄存器值
+ **************************************************/
 extern "C" void set_cpu_reg(int idx, int value) {
     if (idx >= 0 && idx < 32) {
         cpu_regs[idx] = (uint32_t)value;
