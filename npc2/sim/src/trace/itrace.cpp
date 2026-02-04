@@ -1,17 +1,19 @@
 /***************************************************************************************
  * itrace.cpp - 指令执行追踪 (Instruction Trace) 实现 for NPC2
+ * 核心就是
  ***************************************************************************************/
 
 #include "config.h"
 #include "trace/itrace.h"
 
-// 全局实例
+// 全局实例. 结构体声明来自itrace.h
 ITrace itrace;
 
 #if ENABLE_ITRACE
 
-#include "disasm.h"
+#include "utils/disasm.h"
 
+//构造函数初始化. 第一个ITrace是类名, 第二个ITrace()是构造函数名.
 ITrace::ITrace() : head(0), curr(-1), is_realtime(false) {
     for (int i = 0; i < ITRACE_BUF_SIZE; i++) {
         entries[i].valid = false;
@@ -20,6 +22,9 @@ ITrace::ITrace() : head(0), curr(-1), is_realtime(false) {
 
 /**
  * write - 记录一条指令执行信息
+ @param pc: 指令地址
+ @param inst: 指令机器码
+ @param cycle: 当前仿真周期
  */
 void ITrace::write(uint32_t pc, uint32_t inst, uint64_t cycle) {
     if (!(CONFIG_ITRACE_COND_EXPR)) return;
@@ -52,7 +57,7 @@ void ITrace::write(uint32_t pc, uint32_t inst, uint64_t cycle) {
 }
 
 /**
- * display_ringbuf - 显示环形缓冲区的内容
+ * display_ringbuf() - 显示环形缓冲区的内容
  */
 void ITrace::display_ringbuf() {
     if (is_realtime) return;  // REALTIME模式不维护缓冲区

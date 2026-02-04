@@ -93,12 +93,12 @@ void set_dut_ptr(VMiniRV* dut) {
     g_dut = dut;
 }
 
-/**
- * get_cpu_regs - 获取 CPU 寄存器数组指针 (供 DiffTest 使用)
+/****************************************************
+ * get_cpu_regs() - 获取 CPU 寄存器数组指针 (供 DiffTest 使用)
  * 
  * 【实现方式】直接从 Verilator 内部信号读取寄存器值，实时反映硬件状态
  * 不再依赖 DPI-C 的 set_cpu_reg 同步，避免了时序延迟问题
- */
+ ***************************************************/
 uint32_t* get_cpu_regs() {
     if (g_dut) {
         // 直接从 Verilator 内部信号读取寄存器值

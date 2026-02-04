@@ -1,7 +1,13 @@
 这里存放着参与编译 仿真程序 的源码.
 
+sim.mk中的通配符会保证所有src下的.c, .cpp, .cc, .h, .hpp, .hh文件都会参与编译.
 
-如果想添加功能, 记得在sim.mk中将添加的源码参与到编译中...
+但是, 由于verilator会生成自动的`VMinRV.mk`, 它会对所有参与编译的.C源码, 提取其中的`include path`, 自动拼接为`src/path`
+
+所以必须维护src下的include路径, 给出完整的src相对路径. 比如`#include "utils/disasm.h"`.
+
+
+
 
 main.cpp: 仿真主程序
 disasm.h/cpp: 反汇编模块, 将机器码转换为汇编字符串

@@ -58,8 +58,14 @@
 
 
 
-
-
+$(info )
+$(info [MAKE_DEBUG] =================================================)
+$(info [MAKE_DEBUG] Current make level $$(MAKELEVEL): $(MAKELEVEL))
+$(info [MAKE_DEBUG] Current dir $$(CURDIR):   	$(CURDIR))
+$(info [MAKE_DEBUG] $$(MAKEFILE_LIST): 		$(MAKEFILE_LIST))
+$(info [MAKE_DEBUG] Current makefile:	$(abspath $(lastword $(MAKEFILE_LIST))))
+$(info [MAKE_DEBUG] =================================================)
+$(info )
 
 # html规则, 生成个更readable的版本. 使用方式: `make html`. 
 # sed -E `s/old/new/g` 是sed替换命令. -E是ERE. 将old(正则表达式)替换为new(替换字符串). g表示全局.
