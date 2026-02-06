@@ -7,9 +7,13 @@
 #define NR_REGS 32
 #endif
 
+// Context结构体是cpu的某一瞬间快照, 存储GPR和CSR.
+// 注意：成员顺序需与 trap.S 的入栈布局一致。
 struct Context {
-  // TODO: fix the order of these members to match trap.S
-  uintptr_t mepc, mcause, gpr[NR_REGS], mstatus;
+  uintptr_t gpr[NR_REGS];
+  uintptr_t mcause;
+  uintptr_t mstatus;
+  uintptr_t mepc;
   void *pdir;
 };
 

@@ -17,7 +17,7 @@ typedef struct {
   void *start, *end;
 } Area;
 
-// Arch-dependent processor context
+// Arch-dependent processor context。 是的, typedef也有前向声明的作用. 顺带办了.
 typedef struct Context Context;
 
 // An event of type @event, caused by @cause of pointer @ref

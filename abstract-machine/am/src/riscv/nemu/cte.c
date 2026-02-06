@@ -8,8 +8,26 @@ static Context* (*user_handler)(Event, Context*) = NULL;
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
     Event ev = {0};
-    switch (c->mcause) {
-      default: ev.event = EVENT_ERROR; break;
+    uintptr_t mcause = c->mcause;
+    uintptr_t is_interrupt = (uintptr_t)1 << (__riscv_xlen - 1);
+
+    if (mcause & is_interrupt) {
+      switch (mcause & ~is_interrupt) {
+        case 7: ev.event = EVENT_IRQ_TIMER; break;   // machine timer interrupt
+        case 11: ev.event = EVENT_IRQ_IODEV; break;  // machine external interrupt
+        default: ev.event = EVENT_ERROR; break;
+      }
+    } else {
+      switch (mcause) {
+        case 8:  // ecall from U-mode
+        case 9:  // ecall from S-mode
+        case 11: // ecall from M-mode
+          if ((intptr_t)c->GPR1 == -1) ev.event = EVENT_YIELD;
+          else ev.event = EVENT_SYSCALL;
+          c->mepc += 4; // skip ecall
+          break;
+        default: ev.event = EVENT_ERROR; break;
+      }
     }
 
     c = user_handler(ev, c);
