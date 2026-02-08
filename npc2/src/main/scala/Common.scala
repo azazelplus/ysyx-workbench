@@ -35,8 +35,34 @@ object Opcode {
   // J-type: JAL
   val JAL       = "b1101111".U(7.W)
 
-  // val FENCE    = "b0001111".U(7.W) // Fence 指令 (未实现). 在简单的单核非缓存处理器中, 它们的作用有限.
-  // val SYSTEM   = "b1110011".U(7.W) // 系统指令 (未实现)
+  // System: ecall, ebreak, 6*csr
+  val SYSTEM    = "b1110011".U(7.W) 
+}
+
+/**
+  * CSR 操作类型 (funct3)
+  */
+object CSROp {
+  val RW  = "b001".U(3.W)
+  val RS  = "b010".U(3.W)
+  val RC  = "b011".U(3.W)
+  val RWI = "b101".U(3.W)
+  val RSI = "b110".U(3.W)
+  val RCI = "b111".U(3.W)
+}
+
+/**
+  * CSR 地址表
+  */
+object CSRAddr {
+  val mstatus   = 0x300.U(12.W)
+  val mtvec     = 0x305.U(12.W)
+  val mepc      = 0x341.U(12.W)
+  val mcause    = 0x342.U(12.W)
+  val mcycle    = 0xB00.U(12.W)   // 周期计数器低32位
+  val mcycleh   = 0xB80.U(12.W)   // 周期计数器高32位
+  val mvendorid = 0xF11.U(12.W)   // 厂商标识 (只读)
+  val marchid   = 0xF12.U(12.W)   // 架构标识 (只读)
 }
 
 /**
@@ -96,6 +122,14 @@ class ID2EX extends Bundle {
   val is_jalr   = Bool()                  // 是否为 JALR
   val is_lui    = Bool()                  // 是否为 LUI
   val is_auipc  = Bool()                  // 是否为 AUIPC
+  
+  // CSR / System 信号
+  val is_csr    = Bool()                  // 是否为 CSR 指令
+  val csr_op    = UInt(3.W)               // CSR 操作类型 (funct3区分6个csr指令)
+  val csr_addr  = UInt(12.W)              // CSR 地址. (csr指令属于I type, 其中csr段就是I type的imm)
+  val is_ecall  = Bool()                  // 是否为 ECALL
+  val is_ebreak = Bool()                  // 是否为 EBREAK
+  val is_mret   = Bool()                  // 是否为 MRET
 }
 
 /**

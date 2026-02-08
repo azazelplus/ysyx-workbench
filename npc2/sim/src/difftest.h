@@ -79,6 +79,16 @@ bool difftest_step(uint32_t pc, uint32_t *regs);
 
 
 /**
+ * difftest_raise_intr - 让 REF 触发中断/异常
+ *
+ * @param NO: 中断/异常号
+ *
+ * 功能：调用 REF 的 difftest_raise_intr()，让 nemu 更新异常相关状态。
+ */
+void difftest_raise_intr(uint64_t NO);
+
+
+/**
  * difftest_skip_ref - 跳过 REF 执行
  * 
  * 用于处理特殊指令（如 ebreak），这些指令在 REF 中可能有不同行为。

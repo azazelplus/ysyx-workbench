@@ -89,8 +89,19 @@
 // NOTE2: each element in the container can be a tuple
 #define MAP(c, f) c(f)
 
+// BITMASK(bits) - 生成指定位数的全 1 掩码
+// 用法: BITMASK(8) → 0xFF (8 个 1)
 #define BITMASK(bits) ((1ull << (bits)) - 1)
-#define BITS(x, hi, lo) (((x) >> (lo)) & BITMASK((hi) - (lo) + 1)) // similar to x[hi:lo] in verilog
+
+// BITS(x, hi, lo) - 从整数 x 中提取第 hi 到 lo 位（包含两端）
+// 用法: BITS(0xABCD, 15, 8) → 0xAB (提取第 15~8 位)
+//      BITS(0x12345678, 31, 20) → 0x123 (提取高 12 位作为 CSR 地址)
+#define BITS(x, hi, lo) (((x) >> (lo)) & BITMASK((hi) - (lo) + 1))
+
+// SEXT(x, len) - 符号扩展：将 len 位的有符号数扩展为 64 位
+// 用法: SEXT(0xFFF, 12) → 0xFFFFFFFFFFFFFFFF (-1)
+//      SEXT(0x7FF, 12) → 0x000000000000007FF (2047)
+//      SEXT(0x80000000, 32) → 0xFFFFFFFF80000000 (负数)
 #define SEXT(x, len) ({ struct { int64_t n : len; } __x = { .n = x }; (uint64_t)__x.n; })
 
 #define ROUNDUP(a, sz)   ((((uintptr_t)a) + (sz) - 1) & ~((sz) - 1))

@@ -20,15 +20,21 @@ typedef struct {
 // Arch-dependent processor context。 是的, typedef也有前向声明的作用. 顺带办了.
 typedef struct Context Context;
 
+// Event是事件定义. 其中event是事件编号.
 // An event of type @event, caused by @cause of pointer @ref
 typedef struct {
   enum {
     EVENT_NULL = 0,
-    EVENT_YIELD, EVENT_SYSCALL, EVENT_PAGEFAULT, EVENT_ERROR,
-    EVENT_IRQ_TIMER, EVENT_IRQ_IODEV,
+    EVENT_YIELD,      //yield, 主动让出cpu
+    EVENT_SYSCALL,    //系统调用
+    EVENT_PAGEFAULT,  //pagefault
+    EVENT_ERROR,      //未分类的异常
+    EVENT_IRQ_TIMER,  //定时器中断
+    EVENT_IRQ_IODEV,  //外设中断
   } event;
-  uintptr_t cause, ref;
-  const char *msg;
+  uintptr_t cause;    //
+  uintptr_t ref;      //
+  const char *msg;    //打印一些错误信息. 不是rv手册规范.
 } Event;
 
 // A protected address space with user memory @area

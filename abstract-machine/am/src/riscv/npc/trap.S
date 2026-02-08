@@ -78,6 +78,7 @@ __am_asm_trap:
   STORE t2, OFFSET_EPC(sp)
 
 /*let a0 = ap. That is, give the sp(that is, the ptr to struct `Context`) to a0.*/
+/*tips: ABI specifies `a0` stores 1st argument. Subsequent calls to `__am_irq_handle` function will retrieve 1st argument from addr a0.*/
 /*At this point, we completes the task of storing GPR and CSR snapshots on the stack.*/
   mv a0, sp
 

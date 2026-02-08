@@ -75,12 +75,16 @@ void init_device() {
 }
 
 
-// ============ CPU 寄存器访问 ============
+// ============ CPU 寄存器映像, 同步电路中寄存器的值到仿真程序的全局数组中, 供difftest用. ============
 // DUT 指针（由 main.cpp 设置，用于直接访问 Verilator 内部信号）
 static VMiniRV* g_dut = nullptr;
 
-// 寄存器缓冲区（由 get_cpu_regs 填充）
+// GPR寄存器映像（由 get_cpu_regs 填充）
 static uint32_t cpu_regs[32] = {0};
+
+// CSR 寄存器映像（由 set_cpu_csr 填充）. 简化起见, 我没有实现完整的12bit CSR地址空间, 只定义了几个常用CSR的索引.
+// 索引: 0=mstatus, 1=mtvec, 2=mepc, 3=mcause, 4=mcycle, 5=mcycleh, 6=mvendorid, 7=marchid
+static uint32_t cpu_csrs[8] = {0};
 
 // 全局仿真周期计数（由 main.cpp 定义，此处声明为外部变量）
 extern uint64_t g_cycle;
@@ -103,38 +107,38 @@ uint32_t* get_cpu_regs() {
     if (g_dut) {
         // 直接从 Verilator 内部信号读取寄存器值
         // 这些变量名由 Verilator 根据 Chisel 层级结构生成
-        cpu_regs[0]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_0;
-        cpu_regs[1]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_1;
-        cpu_regs[2]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_2;
-        cpu_regs[3]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_3;
-        cpu_regs[4]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_4;
-        cpu_regs[5]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_5;
-        cpu_regs[6]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_6;
-        cpu_regs[7]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_7;
-        cpu_regs[8]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_8;
-        cpu_regs[9]  = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_9;
-        cpu_regs[10] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_10;
-        cpu_regs[11] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_11;
-        cpu_regs[12] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_12;
-        cpu_regs[13] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_13;
-        cpu_regs[14] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_14;
-        cpu_regs[15] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_15;
-        cpu_regs[16] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_16;
-        cpu_regs[17] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_17;
-        cpu_regs[18] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_18;
-        cpu_regs[19] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_19;
-        cpu_regs[20] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_20;
-        cpu_regs[21] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_21;
-        cpu_regs[22] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_22;
-        cpu_regs[23] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_23;
-        cpu_regs[24] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_24;
-        cpu_regs[25] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_25;
-        cpu_regs[26] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_26;
-        cpu_regs[27] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_27;
-        cpu_regs[28] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_28;
-        cpu_regs[29] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_29;
-        cpu_regs[30] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_30;
-        cpu_regs[31] = g_dut->rootp->MiniRV__DOT__regfile__DOT__regs_31;
+        cpu_regs[0]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_0;
+        cpu_regs[1]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_1;
+        cpu_regs[2]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_2;
+        cpu_regs[3]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_3;
+        cpu_regs[4]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_4;
+        cpu_regs[5]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_5;
+        cpu_regs[6]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_6;
+        cpu_regs[7]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_7;
+        cpu_regs[8]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_8;
+        cpu_regs[9]  = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_9;
+        cpu_regs[10] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_10;
+        cpu_regs[11] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_11;
+        cpu_regs[12] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_12;
+        cpu_regs[13] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_13;
+        cpu_regs[14] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_14;
+        cpu_regs[15] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_15;
+        cpu_regs[16] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_16;
+        cpu_regs[17] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_17;
+        cpu_regs[18] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_18;
+        cpu_regs[19] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_19;
+        cpu_regs[20] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_20;
+        cpu_regs[21] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_21;
+        cpu_regs[22] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_22;
+        cpu_regs[23] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_23;
+        cpu_regs[24] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_24;
+        cpu_regs[25] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_25;
+        cpu_regs[26] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_26;
+        cpu_regs[27] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_27;
+        cpu_regs[28] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_28;
+        cpu_regs[29] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_29;
+        cpu_regs[30] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_30;
+        cpu_regs[31] = g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_31;
     }
     return cpu_regs;
 }
@@ -246,6 +250,17 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
 extern "C" void set_cpu_reg(int idx, int value) {
     if (idx >= 0 && idx < 32) {
         cpu_regs[idx] = (uint32_t)value;
+    }
+}
+
+/***************************************************
+ * set_cpu_csr - 同步单个 CSR 寄存器值
+ * @param idx: CSR 索引 (0=mstatus, 1=mtvec, 2=mepc, 3=mcause, 4=mcyclel, 5=mcycleh, 6=mvendorid, 7=marchid)
+ * @param value: CSR 值
+ **************************************************/
+extern "C" void set_cpu_csr(int idx, int value) {
+    if (idx >= 0 && idx < 8) {
+        cpu_csrs[idx] = (uint32_t)value;
     }
 }
 

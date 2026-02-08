@@ -6,7 +6,7 @@
  * 
  * 功能：
  * - 存储器读写（pmem_read, pmem_write）
- * - CPU 寄存器同步（set_cpu_reg）
+ * - CPU 寄存器同步（set_cpu_reg, set_cpu_csr）
  * - EBREAK 指令处理（ebreak_handler）
  ***************************************************************************************/
 
@@ -43,6 +43,13 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask);
  * @param value: 寄存器值
  */
 extern "C" void set_cpu_reg(int idx, int value);
+
+/**
+ * set_cpu_csr - 同步单个 CSR 寄存器值 (由硬件 DPI-C 调用)
+ * @param idx: CSR 索引 (0=mstatus, 1=mtvec, 2=mepc, 3=mcause, 4=mcycle, 5=mcycleh, 6=mvendorid, 7=marchid)
+ * @param value: CSR 值
+ */
+extern "C" void set_cpu_csr(int idx, int value);
 
 /**
  * get_cpu_regs - 获取 CPU 寄存器数组指针 (供 DiffTest 使用)

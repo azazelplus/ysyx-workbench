@@ -17,12 +17,14 @@ struct Context {
   void *pdir;
 };
 
+// 用GPR1统一一下系统调用号. ABI规定, RISCI中, a7(x17)寄存器用来传递系统调用号; RISCE中, a5(x15)寄存器用来传递系统调用号. 
 #ifdef __riscv_e
 #define GPR1 gpr[15] // a5
 #else
-#define GPR1 gpr[17] // a7
+#define GPR1 gpr[17] // a7.
 #endif
 
+// 这坨是...以后用到再说...
 #define GPR2 gpr[0]
 #define GPR3 gpr[0]
 #define GPR4 gpr[0]

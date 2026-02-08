@@ -1,10 +1,12 @@
 PC.sv
 IFU.sv
 IDU.sv
+CSRALU.sv
 EXU.sv
 LSU.sv
 WBU.sv
-RegFile.sv
+GPRFile.sv
+CSRFile.sv
 PMEM.sv
 verification/MiniRV_Verification.sv
 MiniRV.sv

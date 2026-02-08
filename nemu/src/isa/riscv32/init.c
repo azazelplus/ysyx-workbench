@@ -35,6 +35,9 @@ static void restart() {
 
   /* The zero register is always 0. */
   cpu.gpr[0] = 0;
+
+  /* 初始化mstatus for difftest (MPP=11, FS=00) */
+  cpu.mstatus = 0x1800;
 }
 
 //进行一些ISA相关的初始化工作.

@@ -12,7 +12,8 @@ MiniRV (顶层)
 ├── EXU (执行单元) - ALU 运算，分支/跳转计算
 ├── LSU (访存单元) - 数据存储器读写
 ├── WBU (写回单元) - 将结果写回寄存器堆
-└── RegFile (寄存器堆) - 32 个通用寄存器
+├── GPRFile (通用寄存器堆) - 32 个通用寄存器
+└── CSRFile (控制状态寄存器) - mstatus/mtvec/mepc/mcause
 ```
 
 ## 当前状态

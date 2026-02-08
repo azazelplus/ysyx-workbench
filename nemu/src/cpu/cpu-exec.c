@@ -26,9 +26,9 @@
  */
 #define MAX_INST_TO_PRINT 10
 
-CPU_state cpu = {};
-// 全局指令计数器.
-uint64_t g_nr_guest_inst = 0;
+CPU_state cpu = {}; // 全局 CPU 状态变量，定义在 cpu-exec.c 中，包含寄存器和 PC 等信息
+
+uint64_t g_nr_guest_inst = 0; // 全局指令计数器.
 static uint64_t g_timer = 0; // unit: us. total time spent in cpu_exec().
 static bool g_print_step = false;
 

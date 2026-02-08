@@ -20,14 +20,14 @@
 #include <isa-def.h>
 
 
-// The macro `__GUEST_ISA__` is defined in $(CFLAGS).
-// It will be expanded as "x86" or "mips32" ...
+// The macro `__GUEST_ISA__` is defined in $(CFLAGS). It will be expanded as "x86" or "mips32" ...
 // 此处__GUEST_ISA__=="riscv32", 所以下面是两个别名定义:
 // CPU_state == riscv32_CPU_state
 // ISADecodeInfo == riscv32_ISADecodeInfo
 //而`riscv32_CPU_state`和`riscv32_ISADecodeInfo`类型在src/isa/riscv32/include/isa-def.h中定义.
 typedef concat(__GUEST_ISA__, _CPU_state) CPU_state;
 typedef concat(__GUEST_ISA__, _ISADecodeInfo) ISADecodeInfo;
+
 
 // monitor
 extern unsigned char isa_logo[];

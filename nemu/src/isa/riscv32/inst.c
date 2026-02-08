@@ -41,6 +41,7 @@ int y =
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
 #include <cpu/decode.h>
+#include <isa.h>  // for isa_raise_intr()
 
 //便捷宏. gpr(general purpose register)通用寄存器宏, 返回第i个寄存器的值.
 #define R(i) gpr(i)
@@ -49,7 +50,42 @@ int y =
 // 写入寄存器值函数. Mw(addr, len, val) 写.
 #define Mw vaddr_write
 
-// 指令类型枚举.
+// ==================== CSR 读写辅助函数 ====================
+
+// CSR 地址常量
+#define CSR_MSTATUS   0x300
+#define CSR_MTVEC     0x305
+#define CSR_MEPC      0x341
+#define CSR_MCAUSE    0x342
+#define CSR_MVENDORID 0xF11
+#define CSR_MARCHID   0xF12
+
+// csr_read: 根据 12 位 CSR 地址读取 CSR 值
+static word_t csr_read(uint32_t addr) {
+  switch (addr) {
+    case CSR_MSTATUS:   return cpu.mstatus;
+    case CSR_MTVEC:     return cpu.mtvec;
+    case CSR_MEPC:      return cpu.mepc;
+    case CSR_MCAUSE:    return cpu.mcause;
+    case CSR_MVENDORID: return 0x79737978;  // ysyx
+    case CSR_MARCHID:   return 0x17f270e;
+    default:            return 0;
+  }
+}
+
+// csr_write: 根据 12 位 CSR 地址写入 CSR 值 (只读寄存器写入无效)
+static void csr_write(uint32_t addr, word_t val) {
+  switch (addr) {
+    case CSR_MSTATUS:   cpu.mstatus = val; break;
+    case CSR_MTVEC:     cpu.mtvec   = val; break;
+    case CSR_MEPC:      cpu.mepc    = val; break;
+    case CSR_MCAUSE:    cpu.mcause  = val; break;
+    // mvendorid, marchid 为只读, 写入忽略
+    default: break;
+  }
+}
+
+// 指令类型枚举. 给decode_operand()看的, 让它知道该怎麽decode当前inst
 enum {
   TYPE_I, //I型. addi, jalr, lw 立即数型
   TYPE_U, //U型. lui, auipc 上位立即数型
@@ -94,12 +130,17 @@ enum {
 // |imm[12]  |imm[10:5]   | rs2   |  rs1  | funct3  |  imm[4:1] |imm[11] |  opcode  |
 #define immB() do { *imm = SEXT((BITS(i, 31, 31) << 12) | (BITS(i, 7, 7) << 11) | (BITS(i, 30, 25) << 5) | (BITS(i, 11, 8) << 1), 13); } while(0)
 
-
-// decode_operand()函数: 提取指令的(rd, src1, src2, imm)每个部分并存到对应变量中.
-// Decode *s是解码器状态结构体指针, 包含了当前指令的PC和指令本身.
-// 接收指令类型type, 以及通过按指针传递来返回rd, src1, src2, imm.
+/** 
+decode_operand()函数: 提取指令的(rd, src1, src2, imm)每个部分并存到对应变量中.
+* @param s : 解码器状态结构体指针, 包含了当前指令的PC和指令本身.
+* @param rd : 指令的目的寄存器编号结果写入位置.
+* @param src1: 指令的第一个源寄存器值写入位置.
+* @param src2: 指令的第二个源寄存器值写入位置.
+* @param imm: 指令的立即数值写入位置.
+* @param type: 指令类型, 决定了指令格式和立即数
+*/
 static void decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int type) {
-  uint32_t i = s->isa.inst.val;
+  uint32_t i = s->isa.inst.val; //i是当前指令.
 
   //对所有类型的指令都通用的部分: 提取rs1, rs2, rd寄存器号.
   int rs1 = BITS(i, 19, 15);
@@ -166,7 +207,14 @@ static int decode_exec(Decode *s) {
 //模式匹配块开始
   INSTPAT_START();
   
-  // 匹配U型指令. 展开INSTPAT->展开INSTPAT_MATCH->调用decode_operand. 最终展开的代码:
+/***
+匹配指令. 
+* @param 1 第一个参数是指令模式字符串; 
+* @param 2 第二个参数是指令名(仅仅为了易读); 
+* @param 3 第三个参数是指令类型, 用来告诉decode_operand函数怎么解码; 
+* @param 4...第四个往后的参数是指令行为. 也就是运行该指令要执行的所有语句.  R()访问GPR, 
+*/
+// 展开INSTPAT->展开INSTPAT_MATCH->调用decode_operand. 最终展开的代码(以U型为例)
 /*
 do {
   // 1. 解析模式字符串，生成掩码
@@ -189,6 +237,7 @@ do {
     goto *(__instpat_end);
   }
 } while (0)
+
 */
   // U型指令
   INSTPAT("??????? ????? ????? ??? ????? 00101 11", auipc  , U, R(rd) = s->pc + imm);
@@ -258,9 +307,36 @@ do {
   INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = src1 % src2);
   
 
-
-  // none型
+  // ==================== System 指令 ====================
+  // ecall: 调用函数isa_raise_intr()函数, 触发 M-mode 环境调用异常 (mcause=11), 跳转到 mtvec
+  INSTPAT("0000000 00000 00000 000 00000 11100 11", ecall  , N, s->dnpc = isa_raise_intr(11, s->pc));
+  // ebreak: 当前仍由 NEMU 仿真器截获作为 TRAP 处理
   INSTPAT("0000000 00001 00000 000 00000 11100 11", ebreak , N, NEMUTRAP(s->pc, R(10))); // R(10) is $a0
+  // mret: 从异常返回, PC = mepc, 恢复 mstatus
+  INSTPAT("0011000 00010 00000 000 00000 11100 11", mret   , N, s->dnpc = cpu.mepc; word_t mpie = (cpu.mstatus >> 7) & 1; cpu.mstatus = (cpu.mstatus & ~(1 << 3)) | (mpie << 3); cpu.mstatus |= (1 << 7));
+
+  // CSR 指令 (opcode=1110011, funct3 区分 6 种)
+  // 例如csrrw, 匹配成功后要执行的代码: 
+  /** 
+  word_t csr_addr = BITS(s->isa.inst.val, 31, 20);  // 从指令中提取出 CSR 地址 (12 位)
+  word_t t = csr_read(csr_addr);                    // 读CSR寄存器, 保存旧值
+  csr_write(csr_addr, src1);                  // 写CSR寄存器, 新值来自rs1
+  R(rd) = t;                              // 将旧值写回目的寄存器rd
+  */
+
+  // csrrw  rd, csr, rs1 :  t=CSR[csr]; CSR[csr]=rs1;  rd=t
+  INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, word_t csr_addr = BITS(s->isa.inst.val, 31, 20); word_t t = csr_read(csr_addr); csr_write(csr_addr, src1); R(rd) = t);
+  // csrrs  rd, csr, rs1 :  t=CSR[csr]; CSR[csr]=t|rs1; rd=t
+  INSTPAT("??????? ????? ????? 010 ????? 11100 11", csrrs  , I, word_t csr_addr = BITS(s->isa.inst.val, 31, 20); word_t t = csr_read(csr_addr); csr_write(csr_addr, t | src1); R(rd) = t);
+  // csrrc  rd, csr, rs1 :  t=CSR[csr]; CSR[csr]=t&~rs1; rd=t
+  INSTPAT("??????? ????? ????? 011 ????? 11100 11", csrrc  , I, word_t csr_addr = BITS(s->isa.inst.val, 31, 20); word_t t = csr_read(csr_addr); csr_write(csr_addr, t & ~src1); R(rd) = t);
+  // csrrwi rd, csr, zimm:  t=CSR[csr]; CSR[csr]=zimm; rd=t   (zimm = inst[19:15], 零扩展)
+  INSTPAT("??????? ????? ????? 101 ????? 11100 11", csrrwi , I, word_t csr_addr = BITS(s->isa.inst.val, 31, 20); word_t zimm = BITS(s->isa.inst.val, 19, 15); word_t t = csr_read(csr_addr); csr_write(csr_addr, zimm); R(rd) = t);
+  // csrrsi rd, csr, zimm:  t=CSR[csr]; CSR[csr]=t|zimm; rd=t
+  INSTPAT("??????? ????? ????? 110 ????? 11100 11", csrrsi , I, word_t csr_addr = BITS(s->isa.inst.val, 31, 20); word_t zimm = BITS(s->isa.inst.val, 19, 15); word_t t = csr_read(csr_addr); csr_write(csr_addr, t | zimm); R(rd) = t);
+  // csrrci rd, csr, zimm:  t=CSR[csr]; CSR[csr]=t&~zimm; rd=t
+  INSTPAT("??????? ????? ????? 111 ????? 11100 11", csrrci , I, word_t csr_addr = BITS(s->isa.inst.val, 31, 20); word_t zimm = BITS(s->isa.inst.val, 19, 15); word_t t = csr_read(csr_addr); csr_write(csr_addr, t & ~zimm); R(rd) = t);
+
   // 匹配不到任何已知模式时, 调用INV()报错. invalid instruction
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv    , N, INV(s->pc));
 

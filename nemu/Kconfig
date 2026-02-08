@@ -250,6 +250,23 @@ menu "Memory Tracing"
 endmenu
 
 # ============================================================================
+#  Exception trace
+# ============================================================================
+
+menu "Exception Tracing"
+  depends on TRACE
+  visible if TRACE
+
+  config ETRACE
+    bool "Enable exception/interrupt tracer"
+    default y
+    help
+      Enable exception/interrupt tracing to record exception handling events.
+      This is non-intrusive and won't affect program behavior.
+      Useful for debugging exception-related issues.
+endmenu
+
+# ============================================================================
 #  Device trace
 # ============================================================================
 

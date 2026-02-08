@@ -41,11 +41,13 @@ class MiniRV extends Module {
   val exu = Module(new EXU)
   val lsu = Module(new LSU)
   val wbu = Module(new WBU)
-  val regfile = Module(new RegFile)
+  val gprfile = Module(new GPRFile)
+  val csrfile = Module(new CSRFile)
+  val regSync = Module(new RegFileSync)  // GPR+CSR 统一同步到 C++ 端 (Difftest)
   val pmem = Module(new PMEM)  // 统一的物理存储器模块
 
   // =================================================================================
-  // 2. IF 阶段 (Instruction Fetch)
+  // 2. IF阶段连线
   // =================================================================================
   // 单周期：跳转信号来自 EXU 组合逻辑输出，直接反馈到 IFU
   ifu.io.jump_en   := exu.io.jump_en
@@ -56,25 +58,40 @@ class MiniRV extends Module {
   pmem.io.imem <> ifu.io.imem
 
   // =================================================================================
-  // 3. ID 阶段 (Instruction Decode)
+  // 3. ID阶段连线
   // =================================================================================
   // 单周期：直接连接 IFU 输出到 IDU 输入（无 IF/ID 寄存器）
   idu.io.in.pc   := ifu.io.out.pc
   idu.io.in.inst := ifu.io.out.inst
 
   // 寄存器堆读取
-  regfile.io.rs1_addr := idu.io.rs1_addr
-  regfile.io.rs2_addr := idu.io.rs2_addr
+  gprfile.io.rs1_addr := idu.io.rs1_addr
+  gprfile.io.rs2_addr := idu.io.rs2_addr
   
   // 单周期：直接使用寄存器堆读出的值（无数据前递）
-  idu.io.rs1_data := regfile.io.rs1_data
-  idu.io.rs2_data := regfile.io.rs2_data
+  idu.io.rs1_data := gprfile.io.rs1_data
+  idu.io.rs2_data := gprfile.io.rs2_data
 
   // =================================================================================
   // 4. EX 阶段 (Execute)
   // =================================================================================
   // 单周期：直接连接 IDU 输出到 EXU 输入（无 ID/EX 寄存器）
   exu.io.in := idu.io.out
+  
+  // CSR 模块连接
+  csrfile.io.csr_addr  := exu.io.csr_addr
+  csrfile.io.csr_wen   := exu.io.csr_wen
+  csrfile.io.csr_wdata := exu.io.csr_wdata
+  exu.io.csr_rdata := csrfile.io.csr_rdata
+  
+  csrfile.io.exception_en := exu.io.is_ecall || exu.io.is_ebreak // 处理 ecall 和 ebreak 异常
+  csrfile.io.cause        := Mux(exu.io.is_ebreak, 3.U, 11.U)     // Breakpoint (3) or M-mode ecall (11)
+  csrfile.io.exception_pc := idu.io.out.pc
+  
+  csrfile.io.is_mret      := exu.io.is_mret
+  
+  exu.io.mtvec        := csrfile.io.mtvec_out
+  exu.io.mepc         := csrfile.io.mepc_out
 
   // =================================================================================
   // 5. MEM 阶段 (Memory Access)
@@ -91,9 +108,9 @@ class MiniRV extends Module {
   // 单周期：直接连接 LSU 输出到 WBU 输入（无 MEM/WB 寄存器）
   wbu.io.in := lsu.io.out
   
-  regfile.io.rd_addr := wbu.io.rd_addr
-  regfile.io.rd_data := wbu.io.rd_data
-  regfile.io.rd_wen  := wbu.io.rd_wen
+  gprfile.io.rd_addr := wbu.io.rd_addr
+  gprfile.io.rd_data := wbu.io.rd_data
+  gprfile.io.rd_wen  := wbu.io.rd_wen
 
   // =================================================================================
   // 7. 其他 (EBREAK 检测与调试)
@@ -107,7 +124,21 @@ class MiniRV extends Module {
   io.debug_inst := ifu.io.out.inst
 
   // =================================================================================
-  // 8. 调试打印 (Debug Printfs)
+  // 8. Difftest: 寄存器同步 (GPR + CSR -> C++)
+  // =================================================================================
+  regSync.io.clock         := clock
+  regSync.io.gpr           := gprfile.io.gpr_sync
+  regSync.io.csr_mstatus   := csrfile.io.csr_sync.mstatus
+  regSync.io.csr_mtvec     := csrfile.io.csr_sync.mtvec
+  regSync.io.csr_mepc      := csrfile.io.csr_sync.mepc
+  regSync.io.csr_mcause    := csrfile.io.csr_sync.mcause
+  regSync.io.csr_mcycle    := csrfile.io.csr_sync.mcycle
+  regSync.io.csr_mcycleh   := csrfile.io.csr_sync.mcycleh
+  regSync.io.csr_mvendorid := csrfile.io.csr_sync.mvendorid
+  regSync.io.csr_marchid   := csrfile.io.csr_sync.marchid
+
+  // =================================================================================
+  // 9. 调试打印 (Debug Printfs)
   // =================================================================================
   // 打印 WB 阶段写寄存器
   when(wbu.io.rd_wen && (wbu.io.rd_addr =/= 0.U)) {

@@ -54,6 +54,8 @@ static void (*ref_difftest_raise_intr)(uint64_t NO) = nullptr;
 // ============ 状态变量 ============
 // 是否跳过下一次 REF 执行（用于处理特殊指令）
 static bool is_skip_ref = false;
+// 是否已经在 REF 端触发过中断（用于跳过一次 REF 执行）
+static bool is_ref_intr = false;
 
 // ============ RISC-V 寄存器名称 (用于错误输出) ============
 static const char *reg_names[32] = {
@@ -156,8 +158,13 @@ bool difftest_step(uint32_t pc, uint32_t *regs) {
     }
     
     // 情况 2: 正常差分测试
-    // 让 REF 执行 1 条指令
-    ref_difftest_exec(1);
+    // 如果已在 REF 端触发中断，则本次不再执行 REF 指令
+    if (is_ref_intr) {
+        is_ref_intr = false;
+    } else {
+        // 让 REF 执行 1 条指令
+        ref_difftest_exec(1);
+    }
     
     // 读取REF的执行后的寄存器状态
     uint32_t ref_regs[33];  // 临时数组, 存放REF的 32 GPRs + PC
@@ -208,6 +215,12 @@ bool difftest_step(uint32_t pc, uint32_t *regs) {
     }
     
     return match;
+}
+
+
+void difftest_raise_intr(uint64_t NO) {
+    ref_difftest_raise_intr(NO);
+    is_ref_intr = true;
 }
 
 /***************************************************************************************

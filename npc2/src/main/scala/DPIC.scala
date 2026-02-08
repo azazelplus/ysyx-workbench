@@ -147,49 +147,78 @@ class EBREAKDetect extends BlackBox with HasBlackBoxInline {
 }
 
 /**
-  * 寄存器堆同步模块. 它接收regfile的32个寄存器输入, 没有输出. 它在内部: 每个时钟周期, 将所有 32 个寄存器的值同步到 C++ 仿真环境. Difftest!
+  * 寄存器堆同步模块. 它接收regfile的32个寄存器输入, 没有输出. 它在内部: 每个时钟周期, 将GPR + CSR的值同步到 C++ 仿真环境. Difftest!
 这样 C++ 端可以随时访问任意寄存器的值.
   */
 class RegFileSync extends BlackBox with HasBlackBoxInline {
   val io = IO(new Bundle {
     val clock = Input(Clock())
-    val regs  = Input(Vec(32, UInt(32.W)))  // 32 个寄存器  
+    val gpr   = Input(Vec(32, UInt(32.W)))  // 32 个通用寄存器
+    // CSR 同步端口
+    val csr_mstatus   = Input(UInt(32.W))
+    val csr_mtvec     = Input(UInt(32.W))
+    val csr_mepc      = Input(UInt(32.W))
+    val csr_mcause    = Input(UInt(32.W))
+    val csr_mcycle    = Input(UInt(32.W))
+    val csr_mcycleh   = Input(UInt(32.W))
+    val csr_mvendorid = Input(UInt(32.W))
+    val csr_marchid   = Input(UInt(32.W))
   })
 
   setInline("RegFileSync.sv",
     """module RegFileSync(
       |  input         clock,
-      |  input  [31:0] regs_0,  regs_1,  regs_2,  regs_3,
-      |  input  [31:0] regs_4,  regs_5,  regs_6,  regs_7,
-      |  input  [31:0] regs_8,  regs_9,  regs_10, regs_11,
-      |  input  [31:0] regs_12, regs_13, regs_14, regs_15,
-      |  input  [31:0] regs_16, regs_17, regs_18, regs_19,
-      |  input  [31:0] regs_20, regs_21, regs_22, regs_23,
-      |  input  [31:0] regs_24, regs_25, regs_26, regs_27,
-      |  input  [31:0] regs_28, regs_29, regs_30, regs_31
+      |  input  [31:0] gpr_0,  gpr_1,  gpr_2,  gpr_3,
+      |  input  [31:0] gpr_4,  gpr_5,  gpr_6,  gpr_7,
+      |  input  [31:0] gpr_8,  gpr_9,  gpr_10, gpr_11,
+      |  input  [31:0] gpr_12, gpr_13, gpr_14, gpr_15,
+      |  input  [31:0] gpr_16, gpr_17, gpr_18, gpr_19,
+      |  input  [31:0] gpr_20, gpr_21, gpr_22, gpr_23,
+      |  input  [31:0] gpr_24, gpr_25, gpr_26, gpr_27,
+      |  input  [31:0] gpr_28, gpr_29, gpr_30, gpr_31,
+      |  input  [31:0] csr_mstatus,
+      |  input  [31:0] csr_mtvec,
+      |  input  [31:0] csr_mepc,
+      |  input  [31:0] csr_mcause,
+      |  input  [31:0] csr_mcycle,
+      |  input  [31:0] csr_mcycleh,
+      |  input  [31:0] csr_mvendorid,
+      |  input  [31:0] csr_marchid
       |);
       |
-      |  // DPI-C 函数声明: 同步单个寄存器值到 C++ 端
+      |  // DPI-C 函数声明: 同步 GPR 到 C++ 端
       |  import "DPI-C" function void set_cpu_reg(input int idx, input int value);
+      |  // DPI-C 函数声明: 同步 CSR 到 C++ 端 (预留, C++ 侧未实现时可留空)
+      |  import "DPI-C" function void set_cpu_csr(input int idx, input int value);
       |
       |  // 每个时钟上升沿同步所有寄存器
       |  always @(posedge clock) begin
-      |    set_cpu_reg(0,  regs_0);  set_cpu_reg(1,  regs_1);
-      |    set_cpu_reg(2,  regs_2);  set_cpu_reg(3,  regs_3);
-      |    set_cpu_reg(4,  regs_4);  set_cpu_reg(5,  regs_5);
-      |    set_cpu_reg(6,  regs_6);  set_cpu_reg(7,  regs_7);
-      |    set_cpu_reg(8,  regs_8);  set_cpu_reg(9,  regs_9);
-      |    set_cpu_reg(10, regs_10); set_cpu_reg(11, regs_11);
-      |    set_cpu_reg(12, regs_12); set_cpu_reg(13, regs_13);
-      |    set_cpu_reg(14, regs_14); set_cpu_reg(15, regs_15);
-      |    set_cpu_reg(16, regs_16); set_cpu_reg(17, regs_17);
-      |    set_cpu_reg(18, regs_18); set_cpu_reg(19, regs_19);
-      |    set_cpu_reg(20, regs_20); set_cpu_reg(21, regs_21);
-      |    set_cpu_reg(22, regs_22); set_cpu_reg(23, regs_23);
-      |    set_cpu_reg(24, regs_24); set_cpu_reg(25, regs_25);
-      |    set_cpu_reg(26, regs_26); set_cpu_reg(27, regs_27);
-      |    set_cpu_reg(28, regs_28); set_cpu_reg(29, regs_29);
-      |    set_cpu_reg(30, regs_30); set_cpu_reg(31, regs_31);
+      |    // GPR 同步
+      |    set_cpu_reg(0,  gpr_0);  set_cpu_reg(1,  gpr_1);
+      |    set_cpu_reg(2,  gpr_2);  set_cpu_reg(3,  gpr_3);
+      |    set_cpu_reg(4,  gpr_4);  set_cpu_reg(5,  gpr_5);
+      |    set_cpu_reg(6,  gpr_6);  set_cpu_reg(7,  gpr_7);
+      |    set_cpu_reg(8,  gpr_8);  set_cpu_reg(9,  gpr_9);
+      |    set_cpu_reg(10, gpr_10); set_cpu_reg(11, gpr_11);
+      |    set_cpu_reg(12, gpr_12); set_cpu_reg(13, gpr_13);
+      |    set_cpu_reg(14, gpr_14); set_cpu_reg(15, gpr_15);
+      |    set_cpu_reg(16, gpr_16); set_cpu_reg(17, gpr_17);
+      |    set_cpu_reg(18, gpr_18); set_cpu_reg(19, gpr_19);
+      |    set_cpu_reg(20, gpr_20); set_cpu_reg(21, gpr_21);
+      |    set_cpu_reg(22, gpr_22); set_cpu_reg(23, gpr_23);
+      |    set_cpu_reg(24, gpr_24); set_cpu_reg(25, gpr_25);
+      |    set_cpu_reg(26, gpr_26); set_cpu_reg(27, gpr_27);
+      |    set_cpu_reg(28, gpr_28); set_cpu_reg(29, gpr_29);
+      |    set_cpu_reg(30, gpr_30); set_cpu_reg(31, gpr_31);
+      |    // CSR 同步 (idx 含义: 0=mstatus, 1=mtvec, 2=mepc, 3=mcause, 4=mcycle, 5=mcycleh, 6=mvendorid, 7=marchid)
+      |    set_cpu_csr(0, csr_mstatus);
+      |    set_cpu_csr(1, csr_mtvec);
+      |    set_cpu_csr(2, csr_mepc);
+      |    set_cpu_csr(3, csr_mcause);
+      |    set_cpu_csr(4, csr_mcycle);
+      |    set_cpu_csr(5, csr_mcycleh);
+      |    set_cpu_csr(6, csr_mvendorid);
+      |    set_cpu_csr(7, csr_marchid);
       |  end
       |
       |endmodule

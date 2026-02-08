@@ -129,7 +129,7 @@ __EXPORT void difftest_regcpy(void *dut, bool direction) {
 __EXPORT void difftest_exec(uint64_t n) {
   cpu_exec(n);
 }
-
+               
 
 
 /***************************************************************************************
@@ -146,8 +146,8 @@ __EXPORT void difftest_exec(uint64_t n) {
 *   这样两者才能保持状态一致
 ***************************************************************************************/
 __EXPORT void difftest_raise_intr(word_t NO) {
-  // TODO: 当 npc2 支持中断时实现
-  // 可以调用 isa_raise_intr(NO) 或类似函数
+  // 触发 REF 端的异常/中断，并更新 PC 到异常入口
+  cpu.pc = isa_raise_intr(NO, cpu.pc);
 }
 
 
