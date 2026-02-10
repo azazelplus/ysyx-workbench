@@ -35,7 +35,11 @@ static bool g_print_step = false;
 void device_update();
 
 
-//================= trace_and_difftest 相关 =====================
+/** 
+* trace_and_difftest - 记录itrace, 更新差分测试, 扫描监视点.
+* @param _this: 当前指令的Decode结构体, 包含指令信息和日志缓冲区等.
+* @param dnpc: 当前指令执行后的下一条指令地址 (dynamic next pc).
+*/
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
   if (CONFIG_ITRACE_COND_EXPR) { log_write("%s\n", _this->logbuf); }

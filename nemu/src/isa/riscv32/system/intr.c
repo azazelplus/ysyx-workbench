@@ -4,7 +4,8 @@
 
 #include <isa.h>
 
-// RISC-V 异常/中断原因码描述表
+#ifdef CONFIG_ETRACE
+// 开启ETRACE时用: RISC-V 异常/中断原因码描述表
 static const char *exception_names[] = {
   [0]  = "Instruction address misaligned",
   [1]  = "Instruction access fault",
@@ -26,6 +27,7 @@ static const char *interrupt_names[] = {
   [7]  = "Machine timer interrupt",
   [11] = "Machine external interrupt",
 };
+#endif
 
 /**
  * isa_raise_intr - 使nemu触发异常/中断. nemu的ecall指令所做的就是调用这个函数, 并把返回值mtvec存在dnpc, 准备跳转. 
