@@ -31,6 +31,7 @@
 # 要追踪的目录
 !/nemu/
 !/abstract-machine/
+!/am-kernels/
 !/nanos-lite/
 !/navy-apps/
 !/npc/

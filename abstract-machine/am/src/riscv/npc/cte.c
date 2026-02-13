@@ -16,12 +16,9 @@ static Context* (*user_handler)(Event, Context*) = NULL;
 
 
 
-// trap.S将CSR, GPR的当前快照 "以Context结构体的组织" 保存在stack上后, 将栈指针存在a0, 然后调用本函数.
-// 本函数的职责是把硬件异常状态翻译成软件事件(Event). 具体来说他需要实现:
-/*
-对mcause进行decode, (对mcause最高位判断是interrupt还是), 
-分发到syscall, timer, external interrupt, page fault, illegal instruction...等事件.
-*/ 
+// 调用时机: trap.S将CSR, GPR的当前快照 "以Context结构体的组织" 保存在stack上后, 将栈指针存在a0, 然后调用本函数.
+// __am_irq_handle函数的职责是把硬件异常状态翻译成软件事件(Event). 具体来说他实现:
+/*对mcause进行decode, (对mcause最高位判断是interrupt还是..), 分发到syscall, timer, external interrupt, page fault, illegal instruction...等事件. 其实就是把包含完整信息的mcause翻译, 得到Event分类结构体*/ 
 /* 那本函数啥时候从a0拿到指针作为参数呢? 参数搬运发生在 C → 汇编 的中间层: 回忆 RISCV ABI的调用约定:
 | 寄存器   | 作用      |
 | ----- | ------- |
@@ -78,7 +75,7 @@ extern void __am_asm_trap(void);
 /** 
 cte_init函数,
 1. 执行汇编: `csrw mtvec, __am_asm_trap`, 即把符号__am_asm_trap放入mtvec寄存器.
-2. 给user_handler空函数句柄注册为handler函数. 用户程序需要调用它, 注册自己的事件处理函数.
+2. 给user_handler空函数句柄注册为handler函数. 用户程序有责任调用它, 注册自己的事件处理函数.
 * @param handler "用户程序"提供的事件处理函数指针. 中断/异常时, 函数__am_irq_handle()会调用这个handler函数来处理事件.
 *                handler接收一个Event(事件类型)和Context(当前上下文), 返回下一个要切换到的Context.
 */

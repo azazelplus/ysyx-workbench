@@ -3,8 +3,14 @@
 #include <riscv/riscv.h>
 #include <klib.h>
 
+//声明一下user_handler函数指针, 它是cte的事件处理函数. 初始化为NULL, 用户程序有责任通过调用cte_init(用户提供的事件处理函数)来让user_handler=用户提供的事件处理函数, 
 static Context* (*user_handler)(Event, Context*) = NULL;
 
+
+
+// 调用时机: trap.S将CSR, GPR的当前快照 "以Context结构体的组织" 保存在stack上后, 将栈指针存在a0, 然后调用本函数.
+// __am_irq_handle函数的职责是把硬件异常状态翻译成软件事件(Event). 具体来说他实现:
+/*对mcause进行decode, (对mcause最高位判断是interrupt还是..), 分发到syscall, timer, external interrupt, page fault, illegal instruction...等事件. 其实就是把包含完整信息的mcause翻译, 得到Event分类结构体*/ 
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
     Event ev = {0};
@@ -56,8 +62,42 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
   return true;
 }
 
+/**
+ * kcontext - 创建内核线程的初始上下文
+ * 
+ * 在指定的栈空间上创建一个新的上下文，使得当调度器切换到这个上下文时，
+ * CPU 会从 entry 函数开始执行，并传入 arg 作为参数。
+ * 
+ * @param kstack: 内核栈的地址范围 (Area.start = 栈底, Area.end = 栈顶)
+ * @param entry:  线程入口函数指针
+ * @param arg:    传递给入口函数的参数
+ * @return:       指向新创建的上下文的指针
+ * 
+ * 实现原理：
+ * 1. 在栈顶预留一个 Context 结构体的空间
+ * 2. 初始化关键寄存器：
+ *    - mepc: 设为 entry，异常返回时会跳转到这里开始执行
+ *    - mstatus: 设为 0x1800，表示 MPP=11 (Machine mode)
+ *    - a0 (gpr[10]): 设为 arg，作为函数的第一个参数
+ */
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
-  return NULL;
+  // 在栈顶预留 Context 结构体空间（栈从高地址向低地址增长）
+  Context *c = (Context*)kstack.end - 1;
+
+  // 设置程序计数器为入口函数地址
+  c->mepc = (uintptr_t)entry;
+
+  // 设置机器态状态寄存器：0x1800 = 0b11000000000000
+  // MPP (Machine Previous Privilege) 字段设为 11，表示返回到 Machine mode
+  c->mstatus = 0x1800;
+
+  // 设置线程初始栈指针，让 mret 后 sp 落在栈顶
+  c->gpr[2] = (uintptr_t)kstack.end - ((NR_REGS + 3) * sizeof(uintptr_t));
+
+  // 设置 a0 寄存器（第一个参数寄存器）为传入的参数
+  c->gpr[10] = (uintptr_t)arg;  // a0 = x10
+
+  return c;
 }
 
 void yield() {
@@ -76,7 +116,7 @@ void iset(bool enable) {
 }
 
 
-/*
+/*************************************
 以am-test中的yield test来分析内陷调用链条.
 
 执行make ARCH=riscv32-nemu run mainargs=i后,
@@ -104,3 +144,8 @@ void iset(bool enable) {
 */
 
 
+/*************************************运行yield-os的分析:
+首先在am-kernels/kernels/yield-os目录下执行`make ARCH=riscv32-nemu run`,
+这将在nemu上执行`yield-os.c`中的main函数.
+main函数的第一句就是`cte_init(schedule);`, 这将yield-os.c中定义的事件处理函数`schedule`注册为CTE的
+*/
