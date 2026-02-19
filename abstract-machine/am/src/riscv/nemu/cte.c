@@ -1,9 +1,12 @@
-// CTE (Context/Thread/Exception), 上下文切换与异常处理相关的接口实现
+/*
+CTE (Context/Thread/Exception), 上下文切换与异常处理相关的接口实现. am的一部分.
+am代码提供运行时环境, 参与编译客户程序最后编译成的image文件. 
+*/
 #include <am.h>
 #include <riscv/riscv.h>
 #include <klib.h>
 
-//声明一下user_handler函数指针, 它是cte的事件处理函数. 初始化为NULL, 用户程序有责任通过调用cte_init(用户提供的事件处理函数)来让user_handler=用户提供的事件处理函数, 
+//声明一下user_handler函数指针, 它是cte的事件处理函数. 初始化为NULL, 用户程序有责任通过调用cte_init(用户提供的事件处理函数)来让user_handler=用户提供的事件处理函数, 这就叫完成了"用户处理函数注册". Context结构体在架构头文件am/include/arch/riscv.h中定义.
 static Context* (*user_handler)(Event, Context*) = NULL;
 
 
@@ -13,26 +16,46 @@ static Context* (*user_handler)(Event, Context*) = NULL;
 /*对mcause进行decode, (对mcause最高位判断是interrupt还是..), 分发到syscall, timer, external interrupt, page fault, illegal instruction...等事件. 其实就是把包含完整信息的mcause翻译, 得到Event分类结构体*/ 
 Context* __am_irq_handle(Context *c) {
   if (user_handler) {
-    Event ev = {0};
-    uintptr_t mcause = c->mcause;
-    uintptr_t is_interrupt = (uintptr_t)1 << (__riscv_xlen - 1);
+    Event ev = {0};                 // 初始化事件结构体. 这是个枚举类型, 描述是啥事件.
+    uintptr_t mcause = c->mcause;   // 读取上下文的mcause寄存器值.
+    uintptr_t mask = (uintptr_t)1 << (__riscv_xlen - 1);  //根据mcause最高位判断是中断还是异常. RISC-V规定, mcause最高位为1表示中断, 为0表示异常. 这里mask掩码=100...000 ,用来判断mcause的最高位.
 
-    if (mcause & is_interrupt) {
-      switch (mcause & ~is_interrupt) {
-        case 7: ev.event = EVENT_IRQ_TIMER; break;   // machine timer interrupt
-        case 11: ev.event = EVENT_IRQ_IODEV; break;  // machine external interrupt
-        default: ev.event = EVENT_ERROR; break;
+    if (mcause & mask) {
+      //如果是interrupt
+      switch (mcause & ~mask) {
+        case 7: {
+          // TODO: handle machine timer interrupt if needed
+          ev.event = EVENT_IRQ_TIMER;
+          break;
+        }
+        case 11: {
+          // TODO: handle machine external interrupt if needed
+          ev.event = EVENT_IRQ_IODEV;
+          break;
+        }
+        default: {
+          // TODO: add more interrupt sources here when needed
+          ev.event = EVENT_ERROR;
+          break;
+        }
       }
     } else {
+      //如果是exception/ecall同步异常
       switch (mcause) {
         case 8:  // ecall from U-mode
         case 9:  // ecall from S-mode
-        case 11: // ecall from M-mode
+        case 11: { // ecall from M-mode
+          // TODO: split by privilege level if needed
           if ((intptr_t)c->GPR1 == -1) ev.event = EVENT_YIELD;
           else ev.event = EVENT_SYSCALL;
-          c->mepc += 4; // skip ecall
+          c->mepc += 4; // 对于ecall异常, 需要mepc+4软件跳过. 否则mret回去又会执行一遍ecall, 陷入死循环.
           break;
-        default: ev.event = EVENT_ERROR; break;
+        }
+        default: {
+          // TODO: add more exception types here when needed
+          ev.event = EVENT_ERROR;
+          break;
+        }
       }
     }
 
@@ -55,25 +78,20 @@ cte_init函数, 给user_handler空函数句柄注册为handler函数. 用户程�
 bool cte_init(Context*(*handler)(Event, Context*)) {
   // initialize exception entry
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
-
   // register event handler
   user_handler = handler;
-
   return true;
 }
 
+
 /**
- * kcontext - 创建内核线程的初始上下文
- * 
- * 在指定的栈空间上创建一个新的上下文，使得当调度器切换到这个上下文时，
- * CPU 会从 entry 函数开始执行，并传入 arg 作为参数。
- * 
- * @param kstack: 内核栈的地址范围 (Area.start = 栈底, Area.end = 栈顶)
+ * kcontext - 在指定栈空间(nemu模拟器拥有的虚拟内存的一段地址)创建内核线程的初始上下文, 并设置sp在栈顶.
+ * 在指定的栈空间上创建一个新的上下文，使得当调度器(对yield-os就是schedule函数)切换到这个上下文时, CPU 会从 entry 函数开始执行，并传入 arg 作为参数。
+ * @param kstack: 内核栈的地址范围 (Area.start = 栈底, Area.end = 栈顶, 是一个Area结构体(二元数组).)
  * @param entry:  线程入口函数指针
  * @param arg:    传递给入口函数的参数
  * @return:       指向新创建的上下文的指针
- * 
- * 实现原理：
+ * Context结构体在架构头文件 riscv.h
  * 1. 在栈顶预留一个 Context 结构体的空间
  * 2. 初始化关键寄存器：
  *    - mepc: 设为 entry，异常返回时会跳转到这里开始执行
@@ -81,25 +99,61 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
  *    - a0 (gpr[10]): 设为 arg，作为函数的第一个参数
  */
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
-  // 在栈顶预留 Context 结构体空间（栈从高地址向低地址增长）
-  Context *c = (Context*)kstack.end - 1;
+  // 在栈顶(stack向下生长, kstack.end是地址最高位)预留 Context 结构体空间（栈从高地址向低地址增长）
+  Context *c = (Context*)kstack.end - 1;  //指针减法, 减去一个Context结构体的大小, 让c指向这个预留的空间. 
 
-  // 设置程序计数器为入口函数地址
-  c->mepc = (uintptr_t)entry;
+  /**************************** 保存上下文 *****************************/
+  c->mepc = (uintptr_t)entry;  // 设置程序计数器为入口函数地址
 
-  // 设置机器态状态寄存器：0x1800 = 0b11000000000000
-  // MPP (Machine Previous Privilege) 字段设为 11，表示返回到 Machine mode
-  c->mstatus = 0x1800;
+  c->mstatus = 0x1800;  // 设置机器态状态寄存器：0x1800 = 0b11000000000000, MPP (Machine Previous Privilege) 字段设为 11，表示返回到 Machine mode
+ 
+  c->gpr[2] = (uintptr_t)c;  // 设置sp(x2是sp寄存器). 使用Context基址作为新线程栈顶, 保持与Context布局一致
 
-  // 设置线程初始栈指针，让 mret 后 sp 落在栈顶
-  c->gpr[2] = (uintptr_t)kstack.end - ((NR_REGS + 3) * sizeof(uintptr_t));
-
-  // 设置 a0 寄存器（第一个参数寄存器）为传入的参数
-  c->gpr[10] = (uintptr_t)arg;  // a0 = x10
+  c->gpr[10] = (uintptr_t)arg;  // a0 = x10. 设置 a0 寄存器（ABI规定a0为第一个参数寄存器）为传入跳转函数的参数
 
   return c;
 }
+/*
+* 举例: 我将要给0x80001000~0x80002000的内存空间创建一个riscv初始上下文, 我将运行:
+kcontext((Area){0x80001000, 0x80002000}, entry, arg);
+这将在下面范围nemu虚拟内存中写入4处:
 
+          [ kstack.end ] (栈空间的最高处)
+                │
+                ▼
+  0x80002000 ───┬───────────────────────────┐  <── kstack.end
+                │      mepc (入口: entry)    │  ◄── c->mepc = (uintptr_t)entry;  // 设置程序计数器为入口函数地址
+                ├───────────────────────────┤
+                │     mstatus (状态: 0x1800) │  ◄── c->mstatus = 0x1800;  // 设置机器态状态寄存器：0x1800表示返回到 Machine mode 
+                ├───────────────────────────┤
+                │      ...(other regs)      │   ◄── 未初始化, 等trap.S负责保存.
+                ├───────────────────────────┤
+                │      ... (gpr[31..11])    │   ◄── 未初始化, 等trap.S负责保存.
+                ├───────────────────────────┤
+                │      a0 (参数: arg)        │  ◄── c->gpr[10] = (uintptr_t)arg 
+                ├───────────────────────────┤
+                │      ... (gpr[9..3])      │   ◄── 未初始化, 等trap.S负责保存.
+                ├───────────────────────────┤
+                │      sp (x2 寄存器值)      │  ◄── c->gpr[2] = c
+                ├───────────────────────────┤
+                │      ra (x1) / gpr[0]     │
+返回的指针 c ──> └───────────────────────────┘  <── (Context*)kstack.end - 1 , 即栈顶, 即指针c, 即sp指针初值
+                │                           │     
+                │      可用栈空间 (Empty)    │
+                │      (函数 f()运行的地方)  │
+                │      (向下生长 ↓)          │
+                │                           │
+  0x80001000 ───┴───────────────────────────┘
+          [ kstack.start ] (栈空间的底部)
+*/
+
+
+
+/**
+ * yield - 主动让出 CPU，触发上下文切换.
+ * 保存系统调用号在a7寄存器
+ * 执行ecall指令
+ */
 void yield() {
 #ifdef __riscv_e
   asm volatile("li a5, -1; ecall");
@@ -144,8 +198,3 @@ void iset(bool enable) {
 */
 
 
-/*************************************运行yield-os的分析:
-首先在am-kernels/kernels/yield-os目录下执行`make ARCH=riscv32-nemu run`,
-这将在nemu上执行`yield-os.c`中的main函数.
-main函数的第一句就是`cte_init(schedule);`, 这将yield-os.c中定义的事件处理函数`schedule`注册为CTE的
-*/

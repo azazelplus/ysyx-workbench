@@ -68,14 +68,17 @@ class CSRFile extends Module {
 
   // ========== CSR 寄存器实例化. (索引csr有12bit, 也就是说最多有4096个CSR寄存器. 只实现基础的...) ==========
   // --- 可读写 CSR ---
-  val mstatus = RegInit(0.U(32.W))    // 0x300 存放状态. bit[3]是MIE, bit[12:11]是MPP
+  val mstatus = RegInit(0.U(32.W))    // 0x300👈CSR索引规定.  存放状态. bit[3]是MIE, bit[12:11]是MPP
   val mtvec   = RegInit(0.U(32.W))    // 0x305 machine trap vec, 存放异常入口地址
   val mepc    = RegInit(0.U(32.W))    // 0x341 存放异常发生时的 PC
   val mcause  = RegInit(0.U(32.W))    // 0x342 存放异常原因
   //val mie     = RegInit(0.U(32.W))  // 0x304 machine interrupt enable, 中断使能
   //val mip     = RegInit(0.U(32.W))  // 0x344 machine interrupt pending, 中断挂起
   //val mtval   = RegInit(0.U(32.W))  // 0x343 machine trap value
-  //val mscratch = RegInit(0.U(32.W)) // 0x340 临时寄存器
+  //val mscratch = RegInit(0.U(32.W)) // 0x340 临时寄存器, 用于交换sp
+  //val satp    = RegInit(0.U(32.W))  // 0x180 S-mode CSR.存放页表基地址和地址转换模式
+  //val vsatp   = RegInit(0.U(32.W))  // 0x200 V-mode CSR. 存放页表基地址和地址转换模式
+
 
   // --- 硬件自增 CSR ---
   // mcycle: 64位周期计数器, 在 RV32 中拆为 mcycle(低32位) 和 mcycleh(高32位)
@@ -99,6 +102,7 @@ class CSRFile extends Module {
     CSRAddr.mcycleh   -> mcycleh,
     CSRAddr.mvendorid -> mvendorid,
     CSRAddr.marchid   -> marchid
+
   ))
   // 连接csr到写接口. 只读寄存器 (mvendorid, marchid) 不允许写入. mcycle/mcycleh 可由软件写入.
   when(io.csr_wen) {

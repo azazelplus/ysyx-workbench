@@ -1,5 +1,9 @@
 /*trap.S instruction segment is stored at addr saved in mtvec reg. This code is executed when trap is triggered.*/
-/*WHAT `trap.S` DOES: save cpu's current GPR and CSR onto stack; call the exception handling function; restore the regs; return(using inst `mret`). */
+/*WHAT `trap.S` DOES: save cpu's current GPR and CSR onto stack; call the exception handling function; restore the regs; return(using inst `mret`). 
+它的角色很类似编译器的prologue. 调用它和编译器平时进入一个函数时写的prologue的不同:
+* 编译器prologue发生在函数调用, 比如客户程序f()
+*/
+
 
 /*C pre-processor section*/
 #define concat_temp(x, y) x ## y
@@ -43,7 +47,11 @@ f(10) f(11) f(12) f(13) f(14) f(15)
 #define POP(n)  LOAD  concat(x, n), (n * XLEN)(sp);
 
 /*size of context struct `Context` */
-#define CONTEXT_SIZE  ((NR_REGS + 3 + 1) * XLEN)
+
+
+#define NR_CSR 3  //参与保存上下文的CSR寄存器个数. 当前有: mcause, mstatus, mepc
+#define NR_CTX_EXT_FIELDS 1 // Context中除GPR/CSR之外的扩展字段个数（当前仅pdir）
+#define CONTEXT_SIZE  ((NR_REGS + NR_CSR + NR_CTX_EXT_FIELDS) * XLEN)
 #define OFFSET_SP     ( 2 * XLEN)
 #define OFFSET_CAUSE  ((NR_REGS + 0) * XLEN)
 #define OFFSET_STATUS ((NR_REGS + 1) * XLEN)
@@ -77,15 +85,17 @@ __am_asm_trap:
   STORE t1, OFFSET_STATUS(sp)
   STORE t2, OFFSET_EPC(sp)
 
-/*let a0 = ap. That is, give the sp(that is, the ptr to struct `Context`) to a0.*/
+/*let a0 = ap.*/
 /*tips: ABI specifies `a0` stores 1st argument. Subsequent calls to `__am_irq_handle` function will retrieve 1st argument from addr a0.*/
-/*At this point, we completes the task of storing GPR and CSR snapshots on the stack.*/
+/*至此, 我们完成了保存上下文.*/
   mv a0, sp
 
 /*call the C function __am_irq_handle() in cte.c*/
   call __am_irq_handle
 
-/**/
+/* switch sp to the new context returned by __am_irq_handle (in a0) */
+  mv sp, a0
+
   LOAD t1, OFFSET_STATUS(sp)
   LOAD t2, OFFSET_EPC(sp)
 /**/
@@ -94,5 +104,5 @@ __am_asm_trap:
 
   MAP(REGS, POP)
 
-  addi sp, sp, CONTEXT_SIZE/*special treatment for sp*/
+  addi sp, sp, CONTEXT_SIZE/*对sp栈指针恢复.*/
   mret

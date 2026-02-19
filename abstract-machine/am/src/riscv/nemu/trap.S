@@ -31,7 +31,12 @@ f(30) f(31)
 #define PUSH(n) STORE concat(x, n), (n * XLEN)(sp);
 #define POP(n)  LOAD  concat(x, n), (n * XLEN)(sp);
 
-#define CONTEXT_SIZE  ((NR_REGS + 3) * XLEN)
+// 要保存上下文的CSR 字段个数（mcause, mstatus, mepc）
+#define NR_CSR 3
+// Context中除GPR/CSR之外的扩展字段个数（当前仅pdir）
+#define NR_CTX_EXT_FIELDS 1
+
+#define CONTEXT_SIZE  ((NR_REGS + NR_CSR + NR_CTX_EXT_FIELDS) * XLEN)
 #define OFFSET_SP     ( 2 * XLEN)
 #define OFFSET_CAUSE  ((NR_REGS + 0) * XLEN)
 #define OFFSET_STATUS ((NR_REGS + 1) * XLEN)
@@ -40,7 +45,7 @@ f(30) f(31)
 .align 3
 .globl __am_asm_trap
 __am_asm_trap:
-  addi sp, sp, -CONTEXT_SIZE
+  addi sp, sp, -CONTEXT_SIZE  //开辟栈空间.
 
   MAP(REGS, PUSH)
 
@@ -57,10 +62,12 @@ __am_asm_trap:
   or t1, t1, a0
   csrw mstatus, t1
 
+  # 保存sp
+  /*至此, 我们完成了保存上下文.*/
   mv a0, sp
   call __am_irq_handle
 
-  # switch to the context returned by __am_irq_handle
+  # switch to the context returned by __am_irq_handle .....?
   mv sp, a0
 
   LOAD t1, OFFSET_STATUS(sp)

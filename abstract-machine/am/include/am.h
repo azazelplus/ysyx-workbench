@@ -17,7 +17,7 @@ typedef struct {
   void *start, *end;
 } Area;
 
-// Arch-dependent processor context。 是的, typedef也有前向声明的作用. 顺带办了.
+// Arch-dependent processor context。 是的, typedef也有前向声明的作用. 顺带办了. Context真正的定义在对应架构头文件.
 typedef struct Context Context;
 
 // Event是事件定义. 其中event是事件编号.

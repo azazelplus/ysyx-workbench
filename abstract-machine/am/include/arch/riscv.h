@@ -7,6 +7,11 @@
 #define NR_REGS 32
 #endif
 
+// CSR 字段个数（在 Context 结构体中）
+// mcause, mstatus, mepc = 3 个
+// 如果将来添加 mcycle 等字段，只需修改这里
+#define NR_CSR 3
+
 // Context结构体是cpu的某一瞬间快照, 存储GPR和CSR.
 // 注意：成员顺序需与 trap.S 的入栈布局一致。
 struct Context {

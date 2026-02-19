@@ -1,0 +1,16 @@
+
+# 默认忽略am-kernels下一切文件
+*
+# 允许进入kernels
+!/kernels/
+# 忽略kernels下一切
+/kernels/*
+# 允许进入kernels/yield-os
+!/kernels/yield-os/
+# 忽略kernels/yield-os下一切
+/kernels/yield-os/*
+# 允许保存am-kernels/kernels/yield-os项目的源码
+!/kernels/yield-os/Makefile
+!/kernels/yield-os/yield-os.c
+
+!.gitignore

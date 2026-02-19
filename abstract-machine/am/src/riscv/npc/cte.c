@@ -19,13 +19,13 @@ static Context* (*user_handler)(Event, Context*) = NULL;
 // 调用时机: trap.S将CSR, GPR的当前快照 "以Context结构体的组织" 保存在stack上后, 将栈指针存在a0, 然后调用本函数.
 // __am_irq_handle函数的职责是把硬件异常状态翻译成软件事件(Event). 具体来说他实现:
 /*对mcause进行decode, (对mcause最高位判断是interrupt还是..), 分发到syscall, timer, external interrupt, page fault, illegal instruction...等事件. 其实就是把包含完整信息的mcause翻译, 得到Event分类结构体*/ 
-/* 那本函数啥时候从a0拿到指针作为参数呢? 参数搬运发生在 C → 汇编 的中间层: 回忆 RISCV ABI的调用约定:
+/* 既然trap.S将栈指针存在a0然后调用本函数, 那本函数啥时候从a0拿到栈指针作为传入参数呢? 参数搬运发生在 C → 汇编 的中间层: 回忆 RISCV ABI的调用约定:
 | 寄存器   | 作用      |
 | ----- | ------- |
 | a0–a7 | 函数参数    |
 | a0    | 第 1 个参数 |
 | a0    | 返回值     |
-所以在trap.S中的`call __am_irq_handle`等价于C中的`__am_irq_handle((Context*)a0)`
+所以在trap.S中的汇编指令`call __am_irq_handle`等价于C中的调用函数`__am_irq_handle((Context*)a0)`
 */
 Context* __am_irq_handle(Context *c) {
   //确保有user_handler, 也就是用户注册了事件处理函数.
@@ -108,7 +108,8 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
 
   c->mepc = (uintptr_t)entry;
   c->mstatus = 0x1800; // 0x1800 = 1100000000000. MPP=11(Machine Mode).
-  c->GPR1 = (uintptr_t)arg; // a0
+  c->gpr[2] = (uintptr_t)c;   // sp: 设置栈指针为Context基址，与trap.S恢复时一致
+  c->gpr[10] = (uintptr_t)arg; // a0: 设置第一个参数寄存器，传入entry函数的参数
 
   return c;
 }
