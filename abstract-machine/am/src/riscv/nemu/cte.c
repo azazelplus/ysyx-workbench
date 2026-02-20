@@ -104,11 +104,8 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
 
   /**************************** 保存上下文 *****************************/
   c->mepc = (uintptr_t)entry;  // 设置程序计数器为入口函数地址
-
   c->mstatus = 0x1800;  // 设置机器态状态寄存器：0x1800 = 0b11000000000000, MPP (Machine Previous Privilege) 字段设为 11，表示返回到 Machine mode
- 
   c->gpr[2] = (uintptr_t)c;  // 设置sp(x2是sp寄存器). 使用Context基址作为新线程栈顶, 保持与Context布局一致
-
   c->gpr[10] = (uintptr_t)arg;  // a0 = x10. 设置 a0 寄存器（ABI规定a0为第一个参数寄存器）为传入跳转函数的参数
 
   return c;
