@@ -208,15 +208,53 @@ int main() {
  * 调用cte.c中的C函数`__am_irq_handle`. 对于ecall触发中断, __am_irq_handle会:
   * 令mepc+=4(跳过ecall指令), 
   * 调用之前注册的事件处理函数schedule.(即`c = user_handler(ev, c);`)
-* 于是nemu开始执行schedule事件处理函数. schedule函数会:
-  * 将当前任务的上下文(它是栈区的一个Context结构体)保存到current->cp中.  //我从这里开始不懂了!!!
-  * 切换current指针到另一个任务.
-  * 返回新任务的上下文, 这时__am_irq_handle函数会把这个新上下文装入a0寄存器, 然后返回.
-  
-  
-  
+* 于是nemu开始执行schedule事件处理函数. 传入参数: ev=EVENT_YIELD, prev=boot_context的指针.
+  * current->cp = prev: 把 boot context 指针保存到 pcb_boot.cp里. (current 初始指向 pcb_boot).
+  * current = (current == &pcb[0] ? &pcb[1] : &pcb[0]): current 从 pcb_boot 切换到 pcb[0].
+  * return current->cp: 即schedule函数最终返回 pcb[0].cp. 这是 kcontext 初始化时写入的 pcb[0].stack 栈顶的 Context 结构体指针.
+* schedule 返回后, __am_irq_handle 将 pcb[0].cp 存入 a0 并 return, 回到 trap.S.
+* trap.S 执行 `mv sp, a0`: sp 从 main 的启动栈顶 切换到 pcb[0].cp 所指地址.
+  此后所有 lw 都从 pcb[0].stack 的顶部的 Context 结构体里读数据.
+* trap.S 恢复 CSR/GPR: mepc ← f 的入口地址, a0(gpr[10]) ← 1L (arg=1), sp 归还 CONTEXT_SIZE.
+  此时 sp = pcb[0].cp + CONTEXT_SIZE = Context结构体正下方的空闲栈顶.
+* mret: PC 跳转到 mepc = f. 第一个参数 a0 = 1L. CPU 开始执行 f(1).
+
+【第一次打印 'A'】
+* f(1): putch('A'), busy-wait, yield().
+* yield() 触发第二次 ecall. 此时 sp 在 pcb[0].stack 内的某处(f调用链的栈帧).
+* trap.S 再次在当前 sp 向下开辟 CONTEXT_SIZE, 保存此刻 pcb[0] 的全部寄存器.
+  保存完毕后 sp 指向这个新 Context. 简称 "ctx_A".
+* __am_irq_handle: mepc+=4, 调用 schedule(EVENT_YIELD, ctx_A).
+* schedule:
+  * current(=pcb[0])->cp = ctx_A: 将 pcb[0].cp 更新为刚刚保存的 ctx_A 位置.
+  * current = pcb[1]: 切换到任务1.
+  * return pcb[1]->cp: 返回 pcb[1].cp (kcontext 初始化的 pcb[1].stack 顶部 Context).
+* trap.S: mv sp, a0 → sp 切换到 pcb[1] 的 Context.
+* 恢复寄存器: mepc = f, a0 = 2L. mret → CPU 开始执行 f(2).
+
+【第一次打印 'B'】
+* f(2): putch('B'), busy-wait, yield().
+* yield() 触发第三次 ecall. 此时 sp 在 pcb[1].stack 内.
+* trap.S 在 pcb[1].stack 上保存 ctx_B.
+* schedule:
+  * pcb[1]->cp = ctx_B.
+  * current = pcb[0].
+  * return pcb[0]->cp = ctx_A (上一轮保存的 f(1) 被 yield 打断时的现场).
+* trap.S: mv sp, a0 → sp 切换到 ctx_A.
+* 恢复 pcb[0] 寄存器: mepc = yield() 中 ecall 下一条指令(ret), sp = f(1) 调用 yield 时的栈帧.
+* mret: CPU 回到 f(1) 的 yield() 返回点 → for循环 → yield() → 打印 'A' ...
+
+【无限循环】
+如此往复: 每次 yield() 都让 schedule 把 current 在 pcb[0] 和 pcb[1] 之间交替.
+trap.S 的 `mv sp, a0` 是上下文切换的核心一句 —— 它让 sp 从一个任务的栈顶跳到另一个任务的栈顶.
+之后 trap.S 从新 sp 处恢复寄存器, mret 跳回对应任务的断点, 两个任务就永远交替打印 ABABAB...
+
 *********************************************************
 */
+
+
+
+
 
 
 

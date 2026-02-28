@@ -57,28 +57,25 @@ void iringbuf_write(const char *logbuf) {
  */
 void iringbuf_display() {
   if (iringbuf_curr < 0) {
-    Log("iringbuf: No instructions recorded.");
+    printf("[iringbuf] No instructions recorded.\n");
     return;
   }
   
-  Log("========== Instruction Ring Buffer ==========");
+  printf("\n========== Instruction Ring Buffer ==========\n");
   
-  // 从 head 开始遍历（head 指向最旧的位置，因为它是下一个要被覆盖的位置）
-  // 但如果缓冲区还没满，需要从第一个有效条目开始
   int start = iringbuf_head;
   int count = 0;
   
   for (int i = 0; i < IRINGBUF_SIZE; i++) {
     int idx = (start + i) % IRINGBUF_SIZE;
     if (iringbuf[idx].valid) {
-      // 用 "-->" 标记最后执行的指令
       const char *marker = (idx == iringbuf_curr) ? " --> " : "     ";
       printf("%s%s\n", marker, iringbuf[idx].logbuf);
       count++;
     }
   }
   
-  Log("========== End of Ring Buffer (%d instructions) ==========", count);
+  printf("========== End of Ring Buffer (%d instructions) ==========\n", count);
 }
 
 #endif /* CONFIG_IRINGBUF */

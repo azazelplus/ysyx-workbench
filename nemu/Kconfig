@@ -208,6 +208,54 @@ menu "Instruction Tracing"
 endmenu
 
 # ============================================================================
+#  Function trace
+# ============================================================================
+
+menu "Function Tracing"
+  depends on TRACE
+  visible if TRACE
+
+  config FTRACE
+    bool "Enable function call tracer"
+    default n
+    help
+      Enable function call tracing to record call/ret events.
+      Requires an ELF file (passed via --elf) for symbol resolution.
+      When a BAD TRAP or ABORT occurs, the last N call/ret events are printed.
+
+  config FTRACE_COND
+    depends on FTRACE
+    string "Only trace function calls when the condition is true"
+    default "true"
+
+  config FTRACE_LOG
+    depends on FTRACE
+    bool "Write ftrace to log file (full history)"
+    default n
+    help
+      When enabled, every call/ret event is written to the log file via log_write().
+      Same architecture as ITRACE. The log file is specified by -l/--log.
+      When disabled, only the ring buffer is kept for crash display.
+
+  menu "Ring Buffer"
+    depends on FTRACE
+    visible if FTRACE
+
+    config FTRACE_RINGBUF
+      bool "Enable function call ring buffer"
+      default y
+      help
+        Enable ring buffer to record recent call/ret events.
+        When program crashes or hits error, the ring buffer content will be printed.
+
+    config FTRACE_RINGBUF_SIZE
+      depends on FTRACE_RINGBUF
+      int "Ring buffer size (number of call/ret events)"
+      default 64
+  endmenu
+endmenu
+
+# ============================================================================
 #  Memory trace
 # ============================================================================
 

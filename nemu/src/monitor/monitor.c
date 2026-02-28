@@ -1,17 +1,8 @@
 /***************************************************************************************
-* Copyright (c) 2014-2022 Zihao Yu, Nanjing University
-*
-* NEMU is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
 初始化.
+* 挂载点:
+* welcome(), parse_args(), 在init_monitor(), load_img()中被调用.
+* init_monitor()在main()中被调用.
 ***************************************************************************************/
 
 #include <isa.h>
@@ -43,10 +34,12 @@ static void welcome() {
 
 void sdb_set_batch_mode();
 
-static char *log_file = NULL; //???
-static char *diff_so_file = NULL;
-static char *img_file = NULL;
-static int difftest_port = 1234;
+// 命令行参数全局变量（由 parse_args() 填充，init_monitor() 使用）
+static char *log_file = NULL;     // -l/--log: 日志文件路径，用于记录 ITRACE/MTRACE/ETRACE 等全量追踪输出
+static char *diff_so_file = NULL; // -d/--diff: 差分测试参考模型 SO 文件路径（如 QEMU）
+static char *img_file = NULL;     // 位置参数：要加载到内存的客户机二进制镜像文件（.bin）
+static char *elf_file = NULL;     // -e/--elf: ELF 文件路径，供 ftrace 解析函数符号表（.symtab/.strtab）
+static int difftest_port = 1234;  // -p/--port: 差分测试对比端口号（与参考模型通信）
 
 // 加载命令行指定的镜像文件.
 static long load_img() {
@@ -79,16 +72,18 @@ static int parse_args(int argc, char *argv[]) {
     {"log"      , required_argument, NULL, 'l'},
     {"diff"     , required_argument, NULL, 'd'},
     {"port"     , required_argument, NULL, 'p'},
+    {"elf"      , required_argument, NULL, 'e'},
     {"help"     , no_argument      , NULL, 'h'},
     {0          , 0                , NULL,  0 },
   };
   int o;
-  while ( (o = getopt_long(argc, argv, "-bhl:d:p:", table, NULL)) != -1) {
+  while ( (o = getopt_long(argc, argv, "-bhl:d:p:e:", table, NULL)) != -1) {
     switch (o) {
       case 'b': sdb_set_batch_mode(); break;
       case 'p': sscanf(optarg, "%d", &difftest_port); break;
       case 'l': log_file = optarg; break;
       case 'd': diff_so_file = optarg; break;
+      case 'e': elf_file = optarg; break;
       case 1: img_file = optarg; return 0;
       default:
         printf("Usage: %s [OPTION...] IMAGE [args]\n\n", argv[0]);
@@ -103,7 +98,9 @@ static int parse_args(int argc, char *argv[]) {
   return 0;
 }
 
-// 初始化监视器.  
+/*
+// 初始化监视器. 
+*/ 
 void init_monitor(int argc, char *argv[]) {
   /* Perform some global initialization. */
 
@@ -134,6 +131,12 @@ void init_monitor(int argc, char *argv[]) {
 
   /* Initialize the simple debugger. */
   init_sdb();
+
+  /* Initialize function tracer (load ELF symbol table). */
+#ifdef CONFIG_FTRACE
+  extern void ftrace_init(const char *elf_path);
+  ftrace_init(elf_file);
+#endif
 
 #ifndef CONFIG_ISA_loongarch32r
   IFDEF(CONFIG_ITRACE, init_disasm(

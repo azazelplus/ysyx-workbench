@@ -20,6 +20,10 @@
 #include <stdio.h>
 #include <utils.h>
 
+/** 
+Log()宏: 用法: Log("format string", args...). 是printf和log_write的包装. 同时输出到终端和日志文件.
+该宏会调用_Log()函数, 并在日志前自动添加文件名、行号和函数名等上下文信息. 
+*/
 #define Log(format, ...) \
     _Log(ANSI_FMT("[%s:%d %s] " format, ANSI_FG_BLUE) "\n", \
         __FILE__, __LINE__, __func__, ## __VA_ARGS__)

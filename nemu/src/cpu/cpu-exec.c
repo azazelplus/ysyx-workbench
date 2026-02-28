@@ -28,32 +28,70 @@
 
 CPU_state cpu = {}; // 全局 CPU 状态变量，定义在 cpu-exec.c 中，包含寄存器和 PC 等信息
 
-uint64_t g_nr_guest_inst = 0; // 全局指令计数器.
-static uint64_t g_timer = 0; // unit: us. total time spent in cpu_exec().
-static bool g_print_step = false;
+uint64_t g_nr_guest_inst = 0;       // 全局指令计数器.
+static uint64_t g_timer = 0;        // unit: us. total time spent in cpu_exec().
+static bool g_print_step = false;   // 
 
 void device_update();
 
 
 /** 
-* trace_and_difftest - 记录itrace, 更新差分测试, 扫描监视点.
+* trace_and_difftest - 包含4个内容: itrace, ftrace, difftest, 扫描watchpoints.
+* 全部用ifdef块包裹. 不开启itrace&ftrace, watchpoints, difftest时, 此函数为空.
+* 挂载点: 
+* 在exec_once()中被调用.
 * @param _this: 当前指令的Decode结构体, 包含指令信息和日志缓冲区等.
 * @param dnpc: 当前指令执行后的下一条指令地址 (dynamic next pc).
 */
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
+
+  /*******************************ITRACE********************************************/
+#ifdef CONFIG_ITRACE
+  // ---- ITRACE: 生成 logbuf ----
+  {
+    char *p = _this->logbuf;
+    p += snprintf(p, sizeof(_this->logbuf), FMT_WORD ":", _this->pc);
+    int ilen = _this->snpc - _this->pc;
+    uint8_t *raw = (uint8_t *)&_this->isa.inst.val;
+    for (int i = ilen - 1; i >= 0; i--)
+      p += snprintf(p, 4, " %02x", raw[i]);
+    int ilen_max = MUXDEF(CONFIG_ISA_x86, 8, 4);
+    int space_len = (ilen_max - ilen) * 3 + 1;
+    if (space_len < 1) space_len = 1;
+    memset(p, ' ', space_len); p += space_len;
+#ifndef CONFIG_ISA_loongarch32r
+    void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
+    disassemble(p, _this->logbuf + sizeof(_this->logbuf) - p,
+        MUXDEF(CONFIG_ISA_x86, _this->snpc, _this->pc),
+        (uint8_t *)&_this->isa.inst.val, ilen);
+#else
+    p[0] = '\0';
+#endif
+  }
+  // ---- ITRACE: 消费 logbuf ----
 #ifdef CONFIG_ITRACE_COND
   if (CONFIG_ITRACE_COND_EXPR) { log_write("%s\n", _this->logbuf); }
 #endif
-  if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
+  // g_print_step=true 时处于单步调试模式(si n, n<10), 直接打印到终端.
+  if (g_print_step) { puts(_this->logbuf); }
+#endif // CONFIG_ITRACE
   
-  // 将指令写入环形缓冲区
+  // 将指令写入 指令环形缓冲区(IRINGBUF)
 #ifdef CONFIG_IRINGBUF
   extern void iringbuf_write(const char *logbuf);
   iringbuf_write(_this->logbuf);
 #endif
 
+/*******************************FTRACE********************************************/
+#ifdef CONFIG_FTRACE
+  extern void ftrace_trace(uint32_t pc, uint32_t inst, uint32_t next_pc);
+  ftrace_trace((uint32_t)_this->pc, _this->isa.inst.val, (uint32_t)dnpc);
+#endif
+
+/*******************************difftest********************************************/
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
-  
+
+/*******************************watchpoint********************************************/
 #ifdef CONFIG_WATCHPOINT
   // 扫描监视点
   extern bool scan_watchpoints();
@@ -63,59 +101,26 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
 }
 
-// 传入pc和上下文结构体s, 执行一周期. 核心是调用函数isa_exec_once(s)
+
+/** 
+* exec_once, cpu执行一周期, (并执行TRACE和差分测试)
+* 传入pc和上下文结构体s, 执行一周期. 核心是调用函数isa_exec_once(s)
+* @param s: Decode结构体指针, 包含指令信息和日志缓冲区等.
+* @param pc: 当前指令地址.
+*/
 static void exec_once(Decode *s, vaddr_t pc) {
   s->pc = pc;
   s->snpc = pc; // 初始化 snpc (static next pc) 为当前 pc
   isa_exec_once(s); // 执行指令. 这一步会完成取指, 译码, 执行, 并更新 s->snpc 和 s->dnpc
   cpu.pc = s->dnpc; // 更新全局 CPU 的 PC 为下一条动态指令地址 (dnpc)
-
-#ifdef CONFIG_ITRACE
-  // 如果开启了指令追踪 (ITRACE), 则记录指令的执行日志
-  char *p = s->logbuf;
-  // 1. 记录 PC 地址
-  p += snprintf(p, sizeof(s->logbuf), FMT_WORD ":", s->pc);
-  
-  // 2. 记录指令的机器码
-  int ilen = s->snpc - s->pc; // 计算指令长度
-  int i;
-  uint8_t *inst = (uint8_t *)&s->isa.inst.val;
-  for (i = ilen - 1; i >= 0; i --) {
-    p += snprintf(p, 4, " %02x", inst[i]); // 逐字节打印机器码
-  }
-  
-  // 3. 格式化对齐 (为了日志美观)
-  int ilen_max = MUXDEF(CONFIG_ISA_x86, 8, 4);
-  int space_len = ilen_max - ilen;
-  if (space_len < 0) space_len = 0;
-  space_len = space_len * 3 + 1;
-  memset(p, ' ', space_len);
-  p += space_len;
-
-  // 4. 记录反汇编结果
-#ifndef CONFIG_ISA_loongarch32r
-  void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-  disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
-      MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst.val, ilen);
-#else
-  p[0] = '\0'; // the upstream llvm does not support loongarch32r
-#endif
-#endif
+  trace_and_difftest(s, s->dnpc); // TRACE和差分测试
 }
 
-// nemu的核心执行函数: 执行n条指令.
-static void execute(uint64_t n) {
-  Decode s;
-  for (;n > 0; n --) {
-    exec_once(&s, cpu.pc);
-    g_nr_guest_inst ++;
-    trace_and_difftest(&s, cpu.pc);
-    if (nemu_state.state != NEMU_RUNNING) break;
-    IFDEF(CONFIG_DEVICE, device_update());
-  }
-}
 
-// statistic()用来打印统计信息
+/** 
+* statistic, 用来打印统计信息
+* @param return: null
+*/
 static void statistic() {
   IFNDEF(CONFIG_TARGET_AM, setlocale(LC_NUMERIC, ""));
 #define NUMBERIC_FMT MUXDEF(CONFIG_TARGET_AM, "%", "%'") PRIu64
@@ -125,24 +130,34 @@ static void statistic() {
   else Log("Finish running in less than 1 us and can not calculate the simulation frequency");
 }
 
-// assert_fail_msg()在断言失败时调用, 用来打印寄存器状态和统计信息.
+
+/** 
+* assert_fail_msg()在断言失败时调用, 用来打印寄存器状态和trace统计信息.
+* @param return: null
+*/
 void assert_fail_msg() {
   isa_reg_display();
-  
   // 打印指令环形缓冲区
 #ifdef CONFIG_IRINGBUF
   extern void iringbuf_display();
   iringbuf_display();
 #endif
-
-  statistic();
+  // FTRACE
+#ifdef CONFIG_FTRACE
+  extern void ftrace_display();
+  ftrace_display();
+#endif
+  statistic();  //打印统计信息
 }
 
-
-/* Simulate how the CPU works. */
-//执行n条指令. 其实就是包装了一下execute(n)函数, 增加了计时和nemu状态机管理.
+/** 
+* 执行n条指令. 其实就是包装了一下exec_once, 并增加了计时和nemu状态机管理.
+* 传入pc和上下文结构体s, 执行一周期. 核心是调用函数isa_exec_once(s)
+* @param n: 要执行的指令数量.
+*/
 void cpu_exec(uint64_t n) {
   g_print_step = (n < MAX_INST_TO_PRINT); //打印控制. 若n<10, 打开单步打印模式(打印每一条的反汇编结果)
+
   //检查当前模拟器状态机状态. 如果是NEMU_END和NEMU_ABORT, 则提示用户需要重启模拟器. 否则将状态机状态设置为NEMU_RUNNING
   switch (nemu_state.state) {
     case NEMU_END: case NEMU_ABORT:
@@ -151,11 +166,17 @@ void cpu_exec(uint64_t n) {
     default: nemu_state.state = NEMU_RUNNING;
   }
 
-  //计时开始.
-  uint64_t timer_start = get_time();
+  uint64_t timer_start = get_time();  //计时开始.
 
-  //核心. 执行n条指令
-  execute(n);
+/**********************执行n条指令****************************/
+  Decode s;
+  for (;n > 0; n --) {
+    exec_once(&s, cpu.pc);  // exec_once 内部已调用 trace_and_difftest
+    g_nr_guest_inst ++;
+    if (nemu_state.state != NEMU_RUNNING) break;
+    IFDEF(CONFIG_DEVICE, device_update());
+  }
+/***********************************************************/
 
   //计算总时长g_timer
   uint64_t timer_end = get_time();
@@ -179,6 +200,13 @@ void cpu_exec(uint64_t n) {
       if (nemu_state.state == NEMU_ABORT || nemu_state.halt_ret != 0) {
         extern void iringbuf_display();
         iringbuf_display();
+      }
+#endif
+      // 如果是 BAD TRAP 或 ABORT，打印函数调用追踪
+#ifdef CONFIG_FTRACE
+      if (nemu_state.state == NEMU_ABORT || nemu_state.halt_ret != 0) {
+        extern void ftrace_display();
+        ftrace_display();
       }
 #endif
       // fall through

@@ -1,16 +1,7 @@
 /***************************************************************************************
-* Copyright (c) 2014-2022 Zihao Yu, Nanjing University
-*
-* NEMU is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
+日志宏. 挂载点:
+* 
+* 
 ***************************************************************************************/
 
 #include <common.h>
@@ -22,9 +13,14 @@ extern uint64_t g_nr_guest_inst;
 // 写日志指针. 指针都会写到这里去.
 FILE *log_fp = NULL;
 
-// 初始化日志系统. 在monitor.c中的init_monitor()调用. 最终由nemu-main()调用init_monitor()实现初始化
+
+/** init_log - 初始化日志系统. 在monitor.c中的init_monitor()调用. 最终由nemu-main()调用init_monitor()实现初始化.
+* 在init_monitor()中被调用.
+* @param log_file: 日志文件路径. 如果为NULL, 则日志输出到stdout.
+* @return: null
+*/
 void init_log(const char *log_file) {
-  log_fp = stdout;
+  log_fp = stdout;  //默认日志输出到标准输出. 
   if (log_file != NULL) {
     FILE *fp = fopen(log_file, "w");
     Assert(fp, "Can not open '%s'", log_file);

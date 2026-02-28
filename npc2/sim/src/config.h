@@ -30,8 +30,8 @@
 #define REALTIME_ITRACE 0 // 实时打印模式
 
 // ============ FTRACE (函数追踪) ============
-#define ENABLE_FTRACE   0  // 编译开关
-#define REALTIME_FTRACE 0 // 实时打印模式
+#define ENABLE_FTRACE   1  // 编译开关
+#define REALTIME_FTRACE 1 // 实时打印模式
 
 // ============ MTRACE (内存追踪) ============
 #define ENABLE_MTRACE   0  // 编译开关
