@@ -43,6 +43,7 @@ LDFLAGS   += --gc-sections -e _start
 
 # NEMUFLAGS传参给可执行文件`riscv32-nemu-interpreter`. 由monitor.c中的parse_args()函数解析. 
 # -b是nemu的批处理模式参数, 启动后直接运行程序, 不进入交互式sdb.
+# -l指定日志文件路径. 
 # --elf选项指定elf文件给ftrace功能解析符号表.
 # 当前的日志地址被设定为: 把日志文件放在与编译产物同一个目录/nemu-log.txt.
 # --elf 传入 ELF 文件路径，供 ftrace 解析符号表（函数名解析）

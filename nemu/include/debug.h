@@ -22,7 +22,8 @@
 
 /** 
 Log()宏: 用法: Log("format string", args...). 是printf和log_write的包装. 同时输出到终端和日志文件.
-该宏会调用_Log()函数, 并在日志前自动添加文件名、行号和函数名等上下文信息. 
+该宏会调用_Log()函数, 并在日志前自动添加文件名、行号和函数名等上下文信息. 重要的信息可以不用printf()而是Log(), 这样打印出的字符串前面会带有上下文, 而且会写入log文件. 例如这一句就是Log而不是printf打印的:
+[src/cpu/cpu-exec.c:192 cpu_exec] nemu: HIT GOOD TRAP at pc = 0x8000026c
 */
 #define Log(format, ...) \
     _Log(ANSI_FMT("[%s:%d %s] " format, ANSI_FG_BLUE) "\n", \

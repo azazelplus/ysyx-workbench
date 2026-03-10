@@ -1,17 +1,63 @@
 /***************************************************************************************
-* Copyright (c) 2014-2022 Zihao Yu, Nanjing University
-*
-* NEMU is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
-# 实现物理内存相关.
+# 实现内存相关.
+
+nemu的内存组成:
+
+0x00000000-0x7FFFFFFF: 无意义. 在地址访问中直接报错. 
+0x80000000-0x87FFFFFF: 物理内存. 对应宿主侧uint8_t类型的pmem[]数组. 一个大小为CONFIG_MSIZE的uint8_t数组. 分配在宿主linux机的BSS/DATA段. 典型配置为CONFIG_MSIZE=128MB. 
+0x88000000-0x9FFFFFFF: 无意义. 在地址访问中直接报错.
+0xA0000000-0xA130FFFF: MMIO设备空间. 典型配置2MB. 对应宿主侧:[src/device/io/map.c中的io_space指针所指向的2MB堆空间. 使用预分配大块内存 + 线性分配器(new_space). 这个线性分配只是移动指针, 是逻辑意义的分配, 实际上nemu一开始就一次性在宿主侧malloc了2MB堆空间(init_map()函数). 这个设计可以学到堆内存管理的一个技巧：预分配大块内存 + 线性分配器，比频繁 malloc/free 更高效!
+  - 各个设备通过new_space()从这2MB中逐个分配. 目前是这样:
+    • 0xa00003f8-0xa00003ff: SERIAL (8字节)
+    • 0xa0000048-0xa000004f: RTC (8字节)
+    • 0xa0000060-0xa0000063: KEYBOARD (4字节)
+    • 0xa0000100-0xa0000107: VGACTL (8字节)
+    • 0xa0000200-0xa0000217: AUDIO (24字节)
+    • 0xa0000300-0xa000037f: DISK (~128字节)
+    • 0xa1000000-0xa10752ff: VMEM/显存 (~1.9MB)
+    • 0xa1200000-0xa120ffff: 音频缓冲 (64KB)
+
+
+#
+# nemu 虚拟 CPU 看到的地址空间（以 RISCV 为例）:
+# ┌─────────────────────────────────────────────────────────────┐
+# │ 0x00000000                                                  │
+# │    ...                                                      │
+# │ 0x7FFFFFFF                                                  │
+# ├─────────────────────────────────────────────────────────────┤ ← 用户程序通常在此
+# │ 0x80000000  ─┐                                              │
+# │    ...       │  pmem[] 数组 (CONFIG_MBASE ~ +CONFIG_MSIZE)  │
+# │    ...       │  (典型: 128 MB, 0x80000000 ~ 0x87FFFFFF)      │
+# │ 0x87FFFFFF  ─┘                                              │
+# ├─────────────────────────────────────────────────────────────┤ ← MMIO 设备空间
+# │ 0xa0000000  ─┐  DEVICE_BASE                                 │
+# │   ...        │  • 0xa00003f8: SERIAL (8 字节)               │
+# │ 0xa0000048   │  • 0xa0000048: RTC (8 字节)                  │
+# │ 0xa0000060   │  • 0xa0000060: KEYBOARD (4 字节)             │
+# │ 0xa0000100   │  • 0xa0000100: VGACTL (8 字节)               │
+# │   ...        │    - offset 0: SIZE 寄存器 (width<<16|height) │
+# │ 0xa0000104   │    - offset 4: SYNC 寄存器 (刷新信号)        │
+# │ 0xa0000200   │  • 0xa0000200: AUDIO (24 字节)               │
+# │ 0xa0000300   │  • 0xa0000300: DISK (128 字节)               │
+# │            ─┘                                              │
+# ├─────────────────────────────────────────────────────────────┤ ← 帧缓冲空间
+# │ 0xa1000000  ─┐  MMIO_BASE + 0x1000000                       │
+# │    ...       │  vmem (显存/Frame Buffer)                     │
+# │    ...       │  典型容量: 800×600×4 = 1920000 字节          │
+# │ 0xa10752ff  ─┘  (0xa1000000 ~ 0xa10752ff)                   │
+# │                                                             │
+# │ 0xa1200000  ─┐  音频缓冲区                                  │
+# │    ...       │  (64KB)                                      │
+# │ 0xa120ffff  ─┘                                              │
+# └─────────────────────────────────────────────────────────────┘
+#
+# 【重点说明】
+# • pmem[] 和 MMIO 在虚拟CPU看到的地址空间中完全分开
+# • pmem 范围: [0x80000000, 0x87FFFFFF] (CONFIG_MBASE 开始, 128MB)
+# • MMIO 范围: [0xa0000000, 0xa1300000) (DEVICE_BASE 开始)
+# • CPU 访问时：if (addr in pmem) → 访问 pmem[] 数组
+#              else → 查 MMIO 映射表 → 访问 io_space 中分配的设备内存
+#
 # 实现MTRACE_LOG宏. 它利用了utils.h
 ***************************************************************************************/
 
@@ -47,11 +93,11 @@
 
 
 
-
+//分配nemu的物理内存数组 pmem. pmem数组的大小由CONFIG_MSIZE配置决定. 物理内存的起始地址由CONFIG_MBASE配置决定. 物理内存的范围是[CONFIG_MBASE, CONFIG_MBASE + CONFIG_MSIZE)左闭右开区间.
 #if defined(CONFIG_PMEM_MALLOC)
 static uint8_t *pmem = NULL;
 #else // CONFIG_PMEM_GARRAY
-static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};  //分配nemu的物理内存数组.
+static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};  
 #endif
 
 
@@ -179,12 +225,12 @@ void init_mem() {
   Log("physical memory area [" FMT_PADDR ", " FMT_PADDR "]", PMEM_LEFT, PMEM_RIGHT);
 }
 
-/* ============================================================================
+/**  ============================================================================
  * paddr_read - 读取物理内存（公共接口）
  * 
- * @addr: 客户机物理地址（如 0x80000008）
- * @len: 读取字节数（1, 2, 4）
- * @return: 读取的数据（若 len<4，高位补 0）
+ * @param addr: 客户机物理地址（如 0x80000008）
+ * @param len: 读取字节数（1, 2, 4）
+ * @param return: 读取的数据（若 len<4，高位补 0）
  * 
  * 【访问流程】
  * 1. 检查地址是否在有效的物理内存范围内
@@ -193,21 +239,9 @@ void init_mem() {
  *           最后若都失败 → 调用 out_of_bound() 报错
  * 
  * 【likely 宏说明】
- * likely(in_pmem(addr)) 是性能优化提示：
- * - 告诉 CPU 分支预测器，in_pmem(addr) 通常为真
- * - 大多数内存访问确实是物理内存，而不是 MMIO
+ * likely(exp) 是性能优化提示, 告诉 CPU 分支预测器 exp 通常为真.
+ * - likely(in_pmem(addr))表示大多数内存访问确实是物理内存，而不是 MMIO.
  * - 如果预测正确，避免流水线冲刷，提升性能
- * 
- * 【MTRACE_LOG 宏说明】
- * - 如果启用了 MTRACE（内存追踪），记录此次读操作
- * - 如果禁用了 MTRACE，宏展开为 ((void)0)，不生成代码
- * - 支持地址范围过滤：只记录指定范围的访问
- * 
- * 【IFDEF 宏说明】
- * IFDEF(CONFIG_DEVICE, ...) 等价于：
- *   #if defined(CONFIG_DEVICE)
- *       ... 代码 ...
- *   #endif
  * ============================================================================ */
 word_t paddr_read(paddr_t addr, int len) {
   word_t data = 0;  // 初始化为 0（若地址越界或部分读取，高位会是 0）

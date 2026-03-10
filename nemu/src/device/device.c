@@ -24,6 +24,13 @@ void init_alarm();
 void send_key(uint8_t, bool);
 void vga_update_screen();
 
+/**
+device_update - 设备更新函数
+每当设备需要更新状态时（如屏幕刷新、处理输入事件等），都会调用此函数。
+- VGA 刷新: 如果启用了 VGA 支持，检查同步信号并刷新屏幕。
+- 输入事件处理: 在非 AM 模式下，使用 SDL 处理用户输入事件（如窗口关闭、键盘事件等）。
+- 定时器更新: 通过 get_time() 获取当前时间，并根据 TIMER_HZ 定义的频率更新设备状态。
+*/
 void device_update() {
   static uint64_t last = 0;
   uint64_t now = get_time();

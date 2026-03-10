@@ -152,7 +152,7 @@ static void invoke_callback(io_callback_t c, paddr_t offset, int len, bool is_wr
 
 
 /***************************************************************************************
- * init_map - 初始化 MMIO 的内存空间.
+ * init_map - 初始化 MMIO 的内存空间. malloc分配2MB内存在linux宿主机上.
  ***************************************************************************************/
 void init_map() {
   io_space = malloc(IO_SPACE_MAX);  //malloc分配2MB内存作为IO空间, 初始化io_space指向这块空间.
