@@ -17,7 +17,7 @@ import minirv._
 class IDU extends Module {
   val io = IO(new Bundle {
     // ========== IFU->IDU ==========
-    val in = Input(new IF2ID)  // 输入: IFU->IDU, 取到的(pc, inst)
+    val in = Flipped(Decoupled(new IF2ID))  // 输入: IFU->IDU, 取到的(pc, inst)
 
     // ========== 读端口  IDU<->GPRFile  ==========
     val rs1_addr = Output(UInt(Config.REG_ADDR_W.W))  // 读地址1. IDU->GPRFile
@@ -29,7 +29,7 @@ class IDU extends Module {
     val out = Output(new ID2EX)  // 输出: IDU->EXU, 控制信号 + 操作数 + 立即数 + pc
   })
 
-  val inst = io.in.inst
+  val inst = io.in.bits.inst  //bits是Decoupled的预设信号, 即要IFU->IDU的数据, 一个IF2ID实例
 
   // 指令字段切片解析
   val opcode = inst(6, 0)
@@ -119,7 +119,7 @@ IDU的output端口信号连接 - 按功能模块分类
   io.rs2_addr := rs2  //源寄存器地址2
 
   // ====================  数据通路 (PC/操作数/立即数/目标寄存器) ====================
-  io.out.pc       := io.in.pc
+  io.out.pc       := io.in.bits.pc
   io.out.rs1_data := io.rs1_data
   io.out.rs2_data := io.rs2_data
   io.out.imm      := imm
@@ -157,7 +157,40 @@ IDU的output端口信号连接 - 按功能模块分类
   io.out.is_ecall := is_ecall
   io.out.is_ebreak := is_ebreak
   io.out.is_mret  := is_mret
+
+
+  /***************************和IDU的握手逻辑*****************************/
+  // IDU 状态机: 状态是 {valid, decode_done}，输出 ready
+  // 与 IFU 状态机对称:
+  //   IFU: {fetch_done, ready} → 输出 valid
+  //   IDU: {valid,       decode_done} → 输出 ready
+  val decode_done = true.B  // 单周期: 译码立即完成; 未来多周期: 替换为实际完成信号
+
+  val s_wait_valid :: s_busy :: Nil = Enum(2)
+  // s_wait_valid: 空闲等待指令, ready=1
+  // s_busy:       正在译码,     ready=0
+  val state = RegInit(s_wait_valid)
+
+  switch(state) {
+    is(s_wait_valid) {
+      when(io.in.fire) {    // 握手完成 (valid && ready): 收到有效指令, 开始译码
+        state := s_busy
+      }
+    }
+    is(s_busy) {
+      when(decode_done) {   // 译码完成 → 重新等待
+        state := s_wait_valid
+      }
+    }
+  }
+  // ready 由状态驱动(输出), 不依赖 valid (避免组合环)
+  io.in.ready := (state === s_wait_valid)
 }
+
+
+
+
+
 
 
 

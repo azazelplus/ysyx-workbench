@@ -61,8 +61,7 @@ class MiniRV extends Module {
   // 3. ID阶段连线
   // =================================================================================
   // 单周期：直接连接 IFU 输出到 IDU 输入（无 IF/ID 寄存器）
-  idu.io.in.pc   := ifu.io.out.pc
-  idu.io.in.inst := ifu.io.out.inst
+  idu.io.in <> ifu.io.out
 
   // 寄存器堆读取
   gprfile.io.rs1_addr := idu.io.rs1_addr
@@ -116,12 +115,12 @@ class MiniRV extends Module {
   // 7. 其他 (EBREAK 检测与调试)
   // =================================================================================
   // EBREAK 检测 (通过 PMEM 模块)
-  pmem.io.ebreak_inst  := ifu.io.out.inst
+  pmem.io.ebreak_inst  := ifu.io.out.bits.inst
   pmem.io.ebreak_valid := true.B
 
   // 调试输出
-  io.debug_pc   := ifu.io.out.pc
-  io.debug_inst := ifu.io.out.inst
+  io.debug_pc   := ifu.io.out.bits.pc
+  io.debug_inst := ifu.io.out.bits.inst
 
   // =================================================================================
   // 8. Difftest: 寄存器同步 (GPR + CSR -> C++)
