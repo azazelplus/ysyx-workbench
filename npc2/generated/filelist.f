@@ -8,5 +8,9 @@ WBU.sv
 GPRFile.sv
 CSRFile.sv
 PMEM.sv
+Queue1_IF2ID.sv
+Queue1_ID2EX.sv
+Queue1_EX2LS.sv
+Queue1_LS2WB.sv
 verification/MiniRV_Verification.sv
 MiniRV.sv

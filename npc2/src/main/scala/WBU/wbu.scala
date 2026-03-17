@@ -6,24 +6,37 @@ import chisel3.util._
 import minirv._
 
 /**
-  * WBU - 写回单元
-  * 
-  * 功能：
-  * 1. 将结果写回寄存器堆
+  * WBU - 写回单元 (pipeline drain)
+  *
+  * 功能: 将结果写回寄存器堆.
+  * WBU 始终 ready (GPR 写是瞬时的), 仅在 io.in.valid 时实际写 GPR.
   */
 class WBU extends Module {
   val io = IO(new Bundle {
     // 来自 LSU
-    val in = Input(new LS2WB)
-    
+    val in = Flipped(Decoupled(new LS2WB))
+
     // 寄存器堆写端口
     val rd_addr = Output(UInt(Config.REG_ADDR_W.W))
     val rd_data = Output(UInt(Config.XLEN.W))
     val rd_wen  = Output(Bool())
+
+    // debug / ebreak 输出
+    val debug_pc   = Output(UInt(Config.ADDR_WIDTH.W))
+    val debug_inst = Output(UInt(Config.INST_WIDTH.W))
+    val inst_valid = Output(Bool())  // 本周期有有效指令到达 WB 级
   })
 
-  // 直接传递写回信号
-  io.rd_addr := io.in.rd_addr
-  io.rd_data := io.in.wb_data
-  io.rd_wen  := io.in.reg_wen
+  // WBU 始终 ready
+  io.in.ready := true.B
+
+  // 仅在 valid 时写 GPR
+  io.rd_addr := io.in.bits.rd_addr
+  io.rd_data := io.in.bits.wb_data
+  io.rd_wen  := io.in.bits.reg_wen && io.in.valid
+
+  // debug / ebreak
+  io.debug_pc   := io.in.bits.pc
+  io.debug_inst := io.in.bits.inst
+  io.inst_valid := io.in.valid
 }

@@ -1,5 +1,0 @@
-# 规定: .mill-jvm-opts 内容为给mill启动时使用的JVM传参数. 它应该放在./mill同级目录下.
-# 语法: 每行一个JVM参数(`-X...`、`-D...` 等), 非参数格式的行会被忽略.
-# 允许环境变量插值. 使用方式: ${PWD}
-# -D是JVM的system property语法, 在JVM启动时...
--Dchisel.project.root=${PWD}

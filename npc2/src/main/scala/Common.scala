@@ -106,6 +106,7 @@ class IF2ID extends Bundle {
   */
 class ID2EX extends Bundle {
   val pc      = UInt(Config.ADDR_WIDTH.W)
+  val inst    = UInt(Config.INST_WIDTH.W) // 原始指令 (透传到WB级, 用于ebreak检测和debug)
   val rs1_data = UInt(Config.XLEN.W)      // rs1 寄存器值
   val rs2_data = UInt(Config.XLEN.W)      // rs2 寄存器值
   val imm     = UInt(Config.XLEN.W)       // 立即数
@@ -136,6 +137,8 @@ class ID2EX extends Bundle {
   * EXU -> LSU 接口
   */
 class EX2LS extends Bundle {
+  val pc         = UInt(Config.ADDR_WIDTH.W)  // 透传 PC (debug/ebreak)
+  val inst       = UInt(Config.INST_WIDTH.W)  // 透传指令 (debug/ebreak)
   val alu_result = UInt(Config.XLEN.W)    // ALU 计算结果
   val store_data = UInt(Config.XLEN.W)    // Store 写入数据（来自 rs2，经旁路后透传到 MEM 阶段）
   val rd_addr    = UInt(Config.REG_ADDR_W.W)  // 目标寄存器地址
@@ -149,60 +152,91 @@ class EX2LS extends Bundle {
   * LSU -> WBU 接口
   */
 class LS2WB extends Bundle {
+  val pc      = UInt(Config.ADDR_WIDTH.W)  // 透传 PC (debug/ebreak)
+  val inst    = UInt(Config.INST_WIDTH.W)  // 透传指令 (debug/ebreak)
   val wb_data = UInt(Config.XLEN.W)       // 写回数据
   val rd_addr = UInt(Config.REG_ADDR_W.W) // 写回寄存器地址
   val reg_wen = Bool()                    // 寄存器写使能
 }
 
 /**
-  * 数据存储器请求接口 (LSU -> Memory)
-  * 用于 Load/Store 操作
+  * DMEM AR 通道 (Read Address Channel)
   */
-class DMemReq extends Bundle {
-  val raddr = UInt(Config.ADDR_WIDTH.W)   // 读地址
-  val wen   = Bool()                      // 写使能
-  val waddr = UInt(Config.ADDR_WIDTH.W)   // 写地址
-  val wdata = UInt(Config.XLEN.W)         // 写数据
-  val wmask = UInt(4.W)                   // 写掩码（按字节）
-}
-
-/**
-  * 数据存储器响应接口 (Memory -> LSU)
-  */
-class DMemResp extends Bundle {
-  val rdata = UInt(Config.XLEN.W)         // 读数据
-}
-
-/**
-  * 指令存储器请求接口 (IFU -> PMEM)
-  */
-class IMemReq extends Bundle {
+class DMemAR extends Bundle {
   val addr = UInt(Config.ADDR_WIDTH.W)
 }
 
 /**
-  * 指令存储器响应接口 (PMEM -> IFU)
+  * DMEM R 通道 (Read Data Channel)
   */
-class IMemResp extends Bundle {
+class DMemR extends Bundle {
+  val data = UInt(Config.XLEN.W)
+}
+
+/**
+  * DMEM AW 通道 (Write Address Channel)
+  */
+class DMemAW extends Bundle {
+  val addr = UInt(Config.ADDR_WIDTH.W)
+}
+
+/**
+  * DMEM W 通道 (Write Data Channel)
+  */
+class DMemW extends Bundle {
+  val data = UInt(Config.XLEN.W)
+  val mask = UInt(4.W)
+}
+
+/**
+  * DMEM B 通道 (Write Response Channel)
+  */
+class DMemB extends Bundle {
+  val resp = UInt(2.W)  // 0 = OK
+}
+
+/**
+  * 数据存储器接口 (AXI-Lite 风格: AR + R + AW + W + B)
+  * 从 LSU 视角:
+  *   - ar: LSU 发读地址 (Source)
+  *   - r : LSU 收读数据 (Sink)
+  *   - aw: LSU 发写地址 (Source)
+  *   - w : LSU 发写数据 (Source)
+  *   - b : LSU 收写响应 (Sink)
+  */
+class DMemIO extends Bundle {
+  val ar = Decoupled(new DMemAR)
+  val r  = Flipped(Decoupled(new DMemR))
+  val aw = Decoupled(new DMemAW)
+  val w  = Decoupled(new DMemW)
+  val b  = Flipped(Decoupled(new DMemB))
+}
+
+/**
+  * IMEM AR 通道 (Address Read Channel)
+  * payload: addr, handshake: valid/ready
+  */
+class IMemAR extends Bundle {
+  val addr = UInt(Config.ADDR_WIDTH.W)
+}
+
+/**
+  * IMEM R 通道 (Read Data Channel)
+  * payload: data, handshake: valid/ready
+  */
+class IMemR extends Bundle {
   val data = UInt(Config.INST_WIDTH.W)
 }
 
 /**
-  * 指令存储器接口 (双向)
-  * 从 IFU 视角：req 是输出，resp 是输入
+  * 指令存储器接口 (AXI-Lite 风格: AR + R)
+  * 从 IFU 视角：
+  *   - ar: IFU 发地址 (Source)
+  *   - r : IFU 收数据 (Sink)
   */
 class IMemIO extends Bundle {
-  val req  = Output(new IMemReq)
-  val resp = Input(new IMemResp)
-}
-
-/**
-  * 数据存储器接口 (双向)
-  * 从 LSU 视角：req 是输出，resp 是输入
-  */
-class DMemIO extends Bundle {
-  val req  = Output(new DMemReq)
-  val resp = Input(new DMemResp)
+  val ar = Decoupled(new IMemAR)
+  val r  = Flipped(Decoupled(new IMemR))
 }
 
 // 打拍寄存器

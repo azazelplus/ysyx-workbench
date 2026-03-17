@@ -57,15 +57,17 @@ void cpu_init(int argc, char** argv) {
     init_disasm("riscv32");
     
     // 波形追踪
+#if ENABLE_WAVEFORM
     Verilated::traceEverOn(true);
     tfp = new VerilatedVcdC;
     dut->trace(tfp, 99);
     tfp->open("wave.vcd");
-    
+
     char cwd[1024];
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
         printf("[INFO] Waveform will be generated at: %s/wave.vcd\n", cwd);
     }
+#endif
     
     printf("[INFO] Starting simulation...\n");
     printf("[INFO] Max cycles: %lu\n", max_cycles);
@@ -82,7 +84,9 @@ void cpu_reset() {
     for (int i = 0; i < 5; i++) {
         dut->clock = !dut->clock;
         dut->eval();
+#if ENABLE_WAVEFORM
         tfp->dump(i);
+#endif
     }
     dut->reset = 0;
     
@@ -103,15 +107,19 @@ static bool exec_once() {
     // 时钟上升沿
     dut->clock = 1;
     dut->eval();
+#if ENABLE_WAVEFORM
     tfp->dump(g_cycle * 2 + 10);
-    
+#endif
+
     // 更新当前 PC
     g_current_pc = dut->io_debug_pc;
-    
+
     // 时钟下降沿
     dut->clock = 0;
     dut->eval();
+#if ENABLE_WAVEFORM
     tfp->dump(g_cycle * 2 + 11);
+#endif
     
     // 检测指令完成（PC 变化）
     if (dut->io_debug_pc != last_pc) {
