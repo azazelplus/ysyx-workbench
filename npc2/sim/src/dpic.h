@@ -1,19 +1,23 @@
 /***************************************************************************************
  * dpic.h - DPI-C 函数接口声明
- * 
- * DPI-C (Direct Programming Interface - C) 函数的声明，这些函数由 SystemVerilog 
+ *
+ * DPI-C (Direct Programming Interface - C) 函数的声明，这些函数由 SystemVerilog
  * 代码通过 DPI-C 调用，实现硬件-软件协作仿真。
- * 
+ *
  * 功能：
+ * RegFileSync.sv 模块每周期调用 set_cpu_reg/set_cpu_csr 同步寄存器值.
  * - 存储器读写（pmem_read, pmem_write）
- * - CPU 寄存器同步（set_cpu_reg, set_cpu_csr）
  * - EBREAK 指令处理（ebreak_handler）
+ * 
+ * set_cpu_reg/set_cpu_csr是硬件函数. 每个周期将硬件寄存器信号写入C++全局数组`cpu_regs`和`cpu_csrs`.
+ * get_cpu_regs是软件函数.  直接`return cpu_regs;`.
  ***************************************************************************************/
 
 #ifndef __DPIC_H__
 #define __DPIC_H__
 
 #include <cstdint>
+#include "config.h"
 
 // 前向声明 Verilator 生成的类
 class VMiniRV;
@@ -35,29 +39,36 @@ extern "C" uint32_t pmem_read(uint32_t raddr);
  */
 extern "C" void pmem_write(int waddr, int wdata, char wmask);
 
-// ============ CPU 寄存器接口 ============
-
 /**
- * set_cpu_reg - 同步单个寄存器值 (由硬件 DPI-C 调用)
+ * set_cpu_reg - 这是DPIC函数. 同步单个 GPR 寄存器值. 由硬件 RegFileSync每个周期调用
  * @param idx: 寄存器索引 (0-31)
  * @param value: 寄存器值
+ *
+ * 【架构说明】
+ * - 由 RegFileSync.sv 每周期调用，维护 cpu_regs[] 数组
+ * - 条件编译：仅在 ENABLE_SDB || ENABLE_DIFFTEST 时实际同步，否则编译为空桩
+ * - 仿真器无关：标准 DPI-C 接口，支持 Verilator/VCS/Questa 等所有仿真器
  */
 extern "C" void set_cpu_reg(int idx, int value);
 
 /**
- * set_cpu_csr - 同步单个 CSR 寄存器值 (由硬件 DPI-C 调用)
+ * set_cpu_csr - 这是DPIC函数. 同步单个 CSR 寄存器值. 由硬件 RegFileSync每个周期调用
  * @param idx: CSR 索引 (0=mstatus, 1=mtvec, 2=mepc, 3=mcause, 4=mcycle, 5=mcycleh, 6=mvendorid, 7=marchid)
  * @param value: CSR 值
  */
 extern "C" void set_cpu_csr(int idx, int value);
 
 /**
- * get_cpu_regs - 获取 CPU 寄存器数组指针 (供 DiffTest 使用)
+ * get_cpu_regs - 获取 CPU 寄存器数组指针（SDB 和 DiffTest 共用）
  * @return: 指向 32 个通用寄存器数组的指针
- * 
- * 【实现方式】直接从 Verilator 内部信号读取寄存器值，实时反映硬件状态
+ *
+ * 【数据来源】
+ * - 通过 set_cpu_reg() 从硬件同步而来（每周期更新）
+ * - 不依赖特定仿真器的内部 API，实现了硬件/软件解耦
  */
+#if ENABLE_SDB || ENABLE_DIFFTEST
 uint32_t* get_cpu_regs();
+#endif
 
 /**
  * set_dut_ptr - 设置 DUT 指针，使 dpic 模块可以直接访问 Verilator 内部信号

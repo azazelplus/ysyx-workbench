@@ -74,6 +74,7 @@ class MiniRV extends Module {
   val regSync = Module(new RegFileSync)
   val pmem = Module(new PMEM)
 
+
   // =================================================================================
   // 2. IF阶段连线
   // =================================================================================
@@ -205,18 +206,18 @@ class MiniRV extends Module {
   io.debug_inst := wbu.io.debug_inst
 
   // =================================================================================
-  // 8. Difftest: 寄存器同步 (GPR + CSR -> C++)
+  // 8. 寄存器同步 (GPR + CSR → C++, 通过标准 DPI-C 接口)
   // =================================================================================
-  regSync.io.clock         := clock
-  regSync.io.gpr           := gprfile.io.gpr_sync
-  regSync.io.csr_mstatus   := csrfile.io.csr_sync.mstatus
-  regSync.io.csr_mtvec     := csrfile.io.csr_sync.mtvec
-  regSync.io.csr_mepc      := csrfile.io.csr_sync.mepc
-  regSync.io.csr_mcause    := csrfile.io.csr_sync.mcause
-  regSync.io.csr_mcycle    := csrfile.io.csr_sync.mcycle
-  regSync.io.csr_mcycleh   := csrfile.io.csr_sync.mcycleh
-  regSync.io.csr_mvendorid := csrfile.io.csr_sync.mvendorid
-  regSync.io.csr_marchid   := csrfile.io.csr_sync.marchid
+  regSync.clock         := clock
+  regSync.gpr           := gprfile.io.gpr_sync
+  regSync.csr_mstatus   := csrfile.io.csr_sync.mstatus
+  regSync.csr_mtvec     := csrfile.io.csr_sync.mtvec
+  regSync.csr_mepc      := csrfile.io.csr_sync.mepc
+  regSync.csr_mcause    := csrfile.io.csr_sync.mcause
+  regSync.csr_mcycle    := csrfile.io.csr_sync.mcycle
+  regSync.csr_mcycleh   := csrfile.io.csr_sync.mcycleh
+  regSync.csr_mvendorid := csrfile.io.csr_sync.mvendorid
+  regSync.csr_marchid   := csrfile.io.csr_sync.marchid
 
   // =================================================================================
   // 9. 调试打印

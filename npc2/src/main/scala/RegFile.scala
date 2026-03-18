@@ -21,7 +21,7 @@ class GPRFile extends Module {
     val rd_data  = Input(UInt(Config.XLEN.W))
     val rd_wen   = Input(Bool())
 
-    // Difftest 同步输出端口: 将 32 个 GPR 值输出给顶层 RegFileSync
+    // 同步输出端口: 将 32 个 GPR 值通过 DPI-C 导出给 C++ (SDB/DiffTest)
     val gpr_sync = Output(Vec(32, UInt(Config.XLEN.W)))
   })
 
@@ -37,7 +37,7 @@ class GPRFile extends Module {
     regs(io.rd_addr) := io.rd_data
   }
 
-  // 连接32个GPR到同步输出端口
+  // 连接 32 个 GPR 到同步输出端口（DPI-C 接口）
   io.gpr_sync := regs
 }
 
@@ -62,7 +62,7 @@ class CSRFile extends Module {
     val mepc_out     = Output(UInt(32.W)) // 读出mepc寄存器的值, 给 mret 指令返回用
     val is_mret      = Input(Bool())      // MRET指令
 
-    // 连接CSR到同步输出端口
+    // 同步输出端口: 将 CSR 值通过 DPI-C 导出给 C++ (SDB/DiffTest)
     val csr_sync = Output(new CSRSyncBundle)
   })
 
@@ -137,7 +137,7 @@ class CSRFile extends Module {
     mstatus := Cat(mstatus(31, 8), 1.U(1.W), mstatus(6, 4), mpie, mstatus(2, 0))
   }
 
-  // ========== 连接CSR寄存器值到diff接口 ==========
+  // ========== 连接 CSR 寄存器值到同步输出端口（DPI-C 接口）==========
   io.csr_sync.mstatus   := mstatus
   io.csr_sync.mtvec     := mtvec
   io.csr_sync.mepc      := mepc
@@ -149,7 +149,7 @@ class CSRFile extends Module {
 }
 
 /**
-  * CSR 同步数据 Bundle (用于 Difftest)
+  * CSR 同步数据 Bundle (用于 DPI-C 接口)
   */
 class CSRSyncBundle extends Bundle {
   val mstatus   = UInt(32.W)

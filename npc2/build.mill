@@ -45,27 +45,40 @@ import mill.bsp._
 // mill 可执行文件 将会解析传入的参数, 比如`minirv.run`, 分割为`minirv`和`run`. mill会找到 `minirv` 模块, 然后调用其 `run` 方法.
  
 object `npc2` extends SbtModule { m =>
+  // 指定源代码路径. super.millSourcePath 默认是当前目录, 这里 / os.up 表示上一级目录
   override def millSourcePath = super.millSourcePath / os.up
+
+  // scala版本. 必须和chisel兼容...
   override def scalaVersion = "2.13.16"
   
   // 指定默认的 main 类（这样 ./mill npc2.run 就会运行 MiniRV, 而不是在有多个main入口的时候报错让你选择.
   override def mainClass = Some("minirv.MiniRV")
 
+  // scala编译选项.
   override def scalacOptions = Seq(
-    "-language:reflectiveCalls",
-    "-deprecation",
-    "-feature",
-    "-Xcheckinit",
-    "-Ymacro-annotations",
+    "-language:reflectiveCalls",  //允许反射调用
+    "-deprecation",               //启用过时API的警告
+    "-feature",                   //启用语言特性的警告
+    "-Xcheckinit",                //启用初始化检查，防止访问未初始化的字段
+    "-Ymacro-annotations",        //启用宏注解支持（Chisel 需要）
   )
+
+  // 普通依赖
   override def ivyDeps = Agg(
-    ivy"org.chipsalliance::chisel:7.0.0-RC1",
+    // chisel版本.
+    ivy"org.chipsalliance::chisel:7.9.0",
   )
+
+  // 编译器插件依赖, 必须和chisel版本一致.
   override def scalacPluginIvyDeps = Agg(
-    ivy"org.chipsalliance:::chisel-plugin:7.0.0-RC1",
+    ivy"org.chipsalliance:::chisel-plugin:7.9.0",
   )
+
+  // 测试模块.
   object test extends SbtTests with TestModule.ScalaTest {
     override def ivyDeps = m.ivyDeps() ++ Agg(
+
+      //ScalaTest测试框架...
       ivy"org.scalatest::scalatest::3.2.19"
     )
   }

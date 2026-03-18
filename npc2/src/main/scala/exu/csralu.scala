@@ -21,7 +21,7 @@ class CSRALU extends Module {
   // 001(csrrw), 010(csrrs), 011(csrrc) -> Reg
   // 101(csrrwi), 110(csrrsi), 111(csrrci) -> Imm
   val is_imm_op = io.csr_op(2)
-  
+
   // 操作数 1 选择: 立即数 zimm 或 寄存器值 rs1
   val op1 = Mux(is_imm_op, io.imm, io.rs1_data)
 

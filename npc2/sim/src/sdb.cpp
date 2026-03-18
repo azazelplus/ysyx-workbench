@@ -1,4 +1,6 @@
 #include "config.h"
+#if ENABLE_SDB
+
 #include "sdb.h"
 #include "cpu.h"
 #include "dpic.h"
@@ -133,3 +135,5 @@ void sdb_mainloop() {
         free(str);
     }
 }
+
+#endif // ENABLE_SDB

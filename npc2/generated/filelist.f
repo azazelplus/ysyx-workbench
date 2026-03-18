@@ -7,6 +7,10 @@ LSU.sv
 WBU.sv
 GPRFile.sv
 CSRFile.sv
+./RegFileSync.sv
+./PMEMRead.sv
+./PMEMWrite.sv
+./EBREAKDetect.sv
 PMEM.sv
 Queue1_IF2ID.sv
 Queue1_ID2EX.sv

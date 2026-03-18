@@ -27,10 +27,10 @@ import minirv._
   *       │   ▼                      │   │
   *    ┌──┴──────┐                   │   │
   *    │         │←──────────────────┘   │
-  *    │ s_flush │  jump_en &&          │
-  *    │         │  !r.valid            │
-  *    └────┬────┘                      │
-  *         │ r.fire (丢弃)            │
+  *    │ s_flush │  jump_en &&           │
+  *    │         │  !r.valid             │
+  *    └────┬────┘                       │
+  *         │ r.fire (丢弃)              │
   *         └──────────→ s_idle ←───────┘
   *
   * 关于跳转处理 (控制冒险):
@@ -62,7 +62,7 @@ class IFU extends Module {
 
   // 实例化 PC 模块
   val pc = Module(new PC)
-  
+
   // 连接 PC 模块的控制信号
   pc.io.jump_en   := io.jump_en
   pc.io.jump_addr := io.jump_addr
@@ -145,17 +145,17 @@ class IFU extends Module {
 
 }
 // 关于Decoupled:
-//  Decoupled 本身已经自带了方向属性, 它是一个专门为“生产者(Source)”设计的模板. 不需要写 Input/Output.
+//  Decoupled 本身已经自带了方向属性, 它是一个专门为"生产者(Source)"设计的模板. 不需要写 Input/Output.
 // 当你写 val out = Decoupled(new IF2ID) 时, Chisel 的 Decoupled 模板会自动为你在这个接口里创建3个信号, 并且预设了它们的相对方向:
   // bits: 类型是 IF2ID, 方向是 Output (要把取到的指令传出去).
   // valid: 类型是 Bool, 方向是 Output (告诉对方指令有效).
   // ready: 类型是 Bool, 方向是 Input (接收对方的反压信号).
     // fire: 内置逻辑, fire := valid && ready, 代表一次成功的握手 (数据传递).
-    // 
+    //
 
 // 关于Nil, Enum列表, `::`连接符:
-// Nil 是 Scala 中的空列表. `::`连接列表的两个元素. Enum(x)返回值等价于List(0.U, 1.U, ..., x-1.U). 
-// 语句val s_idle :: s_wait :: Nil = Enum(2) 等价于: 
+// Nil 是 Scala 中的空列表. `::`连接列表的两个元素. Enum(x)返回值等价于List(0.U, 1.U, ..., x-1.U).
+// 语句val s_idle :: s_wait :: Nil = Enum(2) 等价于:
   // val s_idle = 0.U
   // val s_wait = 1.U
 

@@ -38,17 +38,17 @@ class PMEM extends Module {
   // IMEM 端 (取指): AR/R 状态机 (保持不变)
   // =====================================================================
   val imem_read = Module(new PMEMRead)
-  imem_read.io.clock := clock
+  imem_read.clock := clock
 
   val s_idle :: s_wait :: Nil = Enum(2)
   val imemState = RegInit(s_idle)
   val imemAddrReg = Reg(UInt(Config.ADDR_WIDTH.W))
 
-  imem_read.io.raddr := imemAddrReg
+  imem_read.raddr := imemAddrReg
 
   io.imem.ar.ready := false.B
   io.imem.r.valid := false.B
-  io.imem.r.bits.data := imem_read.io.rdata
+  io.imem.r.bits.data := imem_read.rdata
 
   switch(imemState) {
     is(s_idle) {
@@ -61,7 +61,7 @@ class PMEM extends Module {
 
     is(s_wait) {
       io.imem.r.valid := true.B
-      io.imem.r.bits.data := imem_read.io.rdata
+      io.imem.r.bits.data := imem_read.rdata
       when(io.imem.r.fire) {
         imemState := s_idle
       }
@@ -72,17 +72,17 @@ class PMEM extends Module {
   // DMEM 读端 (Load): AR/R 状态机 (1-cycle SRAM)
   // =====================================================================
   val dmem_read = Module(new PMEMRead)
-  dmem_read.io.clock := clock
+  dmem_read.clock := clock
 
   val dm_rd_idle :: dm_rd_resp :: Nil = Enum(2)
   val dmemRdState = RegInit(dm_rd_idle)
   val dmemRdAddrReg = Reg(UInt(Config.ADDR_WIDTH.W))
 
-  dmem_read.io.raddr := dmemRdAddrReg
+  dmem_read.raddr := dmemRdAddrReg
 
   io.dmem.ar.ready := false.B
   io.dmem.r.valid  := false.B
-  io.dmem.r.bits.data := dmem_read.io.rdata
+  io.dmem.r.bits.data := dmem_read.rdata
 
   switch(dmemRdState) {
     is(dm_rd_idle) {
@@ -94,7 +94,7 @@ class PMEM extends Module {
     }
     is(dm_rd_resp) {
       io.dmem.r.valid := true.B
-      io.dmem.r.bits.data := dmem_read.io.rdata
+      io.dmem.r.bits.data := dmem_read.rdata
       when(io.dmem.r.fire) {
         dmemRdState := dm_rd_idle
       }
@@ -106,7 +106,7 @@ class PMEM extends Module {
   // AW 和 W 同时接受, 下一周期发出 B 响应
   // =====================================================================
   val dmem_write = Module(new PMEMWrite)
-  dmem_write.io.clock := clock
+  dmem_write.clock := clock
 
   val dm_wr_idle :: dm_wr_resp :: Nil = Enum(2)
   val dmemWrState = RegInit(dm_wr_idle)
@@ -117,10 +117,10 @@ class PMEM extends Module {
   val dmemWrMaskReg = Reg(UInt(4.W))
 
   // PMEMWrite 默认不写
-  dmem_write.io.wen   := false.B
-  dmem_write.io.waddr := dmemWrAddrReg
-  dmem_write.io.wdata := dmemWrDataReg
-  dmem_write.io.wmask := dmemWrMaskReg
+  dmem_write.wen   := false.B
+  dmem_write.waddr := dmemWrAddrReg
+  dmem_write.wdata := dmemWrDataReg
+  dmem_write.wmask := dmemWrMaskReg
 
   io.dmem.aw.ready   := false.B
   io.dmem.w.ready    := false.B
@@ -138,10 +138,10 @@ class PMEM extends Module {
         dmemWrDataReg := io.dmem.w.bits.data
         dmemWrMaskReg := io.dmem.w.bits.mask
         // 执行实际写入 (在下一个时钟沿 always @posedge 中由 PMEMWrite 完成)
-        dmem_write.io.wen   := true.B
-        dmem_write.io.waddr := io.dmem.aw.bits.addr
-        dmem_write.io.wdata := io.dmem.w.bits.data
-        dmem_write.io.wmask := io.dmem.w.bits.mask
+        dmem_write.wen   := true.B
+        dmem_write.waddr := io.dmem.aw.bits.addr
+        dmem_write.wdata := io.dmem.w.bits.data
+        dmem_write.wmask := io.dmem.w.bits.mask
         dmemWrState := dm_wr_resp
       }
     }
@@ -158,7 +158,7 @@ class PMEM extends Module {
   // EBREAK 检测模块
   // =====================================================================
   val ebreak_detect = Module(new EBREAKDetect)
-  ebreak_detect.io.clock := clock
-  ebreak_detect.io.inst  := io.ebreak_inst
-  ebreak_detect.io.valid := io.ebreak_valid
+  ebreak_detect.clock := clock
+  ebreak_detect.inst  := io.ebreak_inst
+  ebreak_detect.valid := io.ebreak_valid
 }
