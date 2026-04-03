@@ -1,4 +1,4 @@
-/***************************************************************************************
+/**
  * IOE=input/output enterface, 输入输出界面层
  * IOE 显示设备（GPU）的am侧驱动. 它面向用户程序, 提供AM_GPU_CONFIG(AM_GPU_CONFIG_T *cfg)和AM_GPU_FBDRAW(AM_GPU_FBDRAW_T *ctl)接口. 
  * 如果对应nemu, 它的硬件实现是vga.c
@@ -8,7 +8,7 @@
  * - 绘图：向帧缓冲（VMEM）写入像素数据，通过 sync 操作显示到屏幕
  * - 状态：查询 GPU 是否就绪
  * 
- * 【AM API】
+ * 【AM API】. 客户程序调用它们即可. 它们是宏, 定义在 klib-macros.h 中
  * - io_read(AM_GPU_CONFIG, &cfg)   查询屏幕配置（分辨率等）
  * - io_write(AM_GPU_FBDRAW, &draw)  执行绘图操作
  * - io_read(AM_GPU_STATUS, &status)  查询 GPU 状态
@@ -21,7 +21,7 @@
  * - 简化实现：不模拟实际的帧缓冲操作
  * - 始终报告屏幕宽高为 0（表示虚拟设备）
  * - GPU 始终处于就绪状态（不需要等待）
- ***************************************************************************************/
+ **/
 
 #include <am.h>
 #include <nemu.h>
@@ -34,7 +34,7 @@ void __am_gpu_init() {
 
 
 
-/***************************************************************************************
+/**
  * __am_gpu_config - 读取 GPU 配置（屏幕分辨率）
  * 
  * 【参数说明】
@@ -45,9 +45,8 @@ void __am_gpu_init() {
  *             - present: 是否存在 GPU
  *             - has_accel: 是否支持硬件加速
  * 
- * 【说明】
  * 从 NEMU 的 VGACTL_ADDR 寄存器读取屏幕宽高等信息。
- ***************************************************************************************/
+ **/
 void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
   // 从 NEMU 的 vgactl 寄存器读取屏幕尺寸
   // vgactl_port_base[0] = (width << 16) | height
@@ -62,7 +61,7 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
 }
 
 
-/***************************************************************************************
+/**
  * __am_gpu_fbdraw - 绘制像素到帧缓冲 (Framebuffer draw)
  * 
  * 【参数说明】
@@ -75,7 +74,7 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg) {
  * 【说明】
  * 将 pixels 中的像素颜色数据复制到显存 (VMEM) 的对应位置。
  * 若 sync 为 true，则写入 SYNC_ADDR 触发硬件刷新屏幕。
- ***************************************************************************************/
+ **/
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl) {
   // 将像素数据写入 VMEM
   // ctl 包含: x, y (起始坐标), pixels (像素数据指针), w, h (绘制区域大小), sync (是否同步)

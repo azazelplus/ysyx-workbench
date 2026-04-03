@@ -12,8 +12,10 @@ CSRFile.sv
 ./PMEMWrite.sv
 ./EBREAKDetect.sv
 PMEM.sv
-Queue1_IF2ID.sv
-Queue1_ID2EX.sv
+AXILiteArbiter.sv
+ram_2x65.sv
+PipeReg2_IF2ID.sv
+PipeReg1_ID2EX.sv
 Queue1_EX2LS.sv
 Queue1_LS2WB.sv
 verification/MiniRV_Verification.sv

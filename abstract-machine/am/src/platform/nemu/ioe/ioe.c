@@ -47,15 +47,17 @@ static void __am_input_config(AM_INPUT_CONFIG_T *cfg) { cfg->present = true;  }
 static void __am_uart_config(AM_UART_CONFIG_T *cfg)   { cfg->present = false; }
 static void __am_net_config (AM_NET_CONFIG_T *cfg)    { cfg->present = false; }
 
-/***************************************************************************************
+
+/**
  * 处理函数类型定义
  * 所有 IO 设备的处理函数都是 void (*)(void *) 的形式：
  * - 参数是指向数据结构的指针（如 AM_TIMER_UPTIME_T、AM_GPU_FBDRAW_T 等）
  * - 函数读取或写入该结构中的数据，与硬件交互
- ***************************************************************************************/
+ **/
 typedef void (*handler_t)(void *buf);
 
-/***************************************************************************************
+
+/**
  * 查找表 (LUT - Lookup Table)
  * 
  * 【工作原理】
@@ -69,7 +71,7 @@ typedef void (*handler_t)(void *buf);
  *   -> 调用 __am_timer_uptime(&uptime)
  *   -> 该函数执行 inl(RTC_ADDR) 等操作，获取硬件数据
  *   -> uptime 结构被填充，返回给用户
- ***************************************************************************************/
+ **/
 static void *lut[128] = {
   [AM_TIMER_CONFIG] = __am_timer_config,
   [AM_TIMER_RTC   ] = __am_timer_rtc,
@@ -90,14 +92,15 @@ static void *lut[128] = {
   [AM_NET_CONFIG  ] = __am_net_config,
 };
 
-/***************************************************************************************
+
+/**
  * fail - 默认的错误处理函数
  * 
  * 当程序尝试访问未实现的寄存器时调用此函数。
- ***************************************************************************************/
+ */
 static void fail(void *buf) { panic("access nonexist register"); }
 
-/***************************************************************************************
+/**
  * ioe_init - 初始化 IOE 子系统
  * 
  * 【执行流程】
@@ -125,7 +128,7 @@ bool ioe_init() {
   return true;
 }
 
-/***************************************************************************************
+/**
  * ioe_read - 从 IOE 设备读取数据
  * 
  * 【执行流程】
@@ -143,10 +146,11 @@ bool ioe_init() {
  * 【参数说明】
  * @param reg: 寄存器号（如 AM_TIMER_UPTIME、AM_INPUT_KEYBRD 等）
  * @param buf: 指向输出数据的指针（格式取决于 reg）
- ***************************************************************************************/
+ **/
 void ioe_read (int reg, void *buf) { ((handler_t)lut[reg])(buf); }
 
-/***************************************************************************************
+
+/**
  * ioe_write - 向 IOE 设备写入数据
  * 
  * 【执行流程】
@@ -162,5 +166,5 @@ void ioe_read (int reg, void *buf) { ((handler_t)lut[reg])(buf); }
  * 【参数说明】
  * @param reg: 寄存器号
  * @param buf: 指向输入数据的指针
- ***************************************************************************************/
+ **/
 void ioe_write(int reg, void *buf) { ((handler_t)lut[reg])(buf); }

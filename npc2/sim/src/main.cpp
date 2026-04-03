@@ -143,7 +143,14 @@ int main(int argc, char** argv) {
     cpu_exec(-1);  // 批处理模式：直接运行到结束
 #endif
 
+    // 检查是否超时退出（超时视为测试失败）
+    bool timed_out = (g_cycle >= max_cycles);
+
     // 清理并退出
     cpu_exit();
+
+    if (timed_out) {
+        return 1;  // 超时返回非零，表示测试失败
+    }
     return 0;
 }

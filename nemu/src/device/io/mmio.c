@@ -105,12 +105,14 @@ void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_
   if (in_pmem(left) || in_pmem(right)) {
     report_mmio_overlap(name, left, right, "pmem", PMEM_LEFT, PMEM_RIGHT);
   }
+
   //检查新设备的地址范围是否与已有的其他 MMIO 设备重叠
   for (int i = 0; i < nr_map; i++) {
     if (left <= maps[i].high && right >= maps[i].low) {
       report_mmio_overlap(name, left, right, maps[i].name, maps[i].low, maps[i].high);
     }
   }
+  
   //将新设备的信息存入全局数组 maps[nr_map], 即完成注册.
   maps[nr_map] = (IOMap){ .name = name, .low = addr, .high = addr + len - 1,
     .space = space, .callback = callback };

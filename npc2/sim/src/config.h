@@ -49,6 +49,6 @@
 
 // ============ WAVEFORM (波形生成) ============
 // 生成 wave.vcd，可用 gtkwave 查看
-#define ENABLE_WAVEFORM 0
+#define ENABLE_WAVEFORM 1
 
 #endif /* __CONFIG_H__ */

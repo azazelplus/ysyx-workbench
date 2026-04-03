@@ -10,7 +10,7 @@ include $(AM_HOME)/scripts/platform/npc2.mk
 # 覆盖默认的 64 位配置，切换为 32 位
 # 注意：你的 npc2 只实现了 RV32I，没有 M 扩展（乘除法）
 # 所以这里用 rv32i 而不是 rv32im
-# 用 += 追加，后面的 -march 选项会覆盖前面的
+# 用 += 追加，后面的 -march 选项会覆盖前面(riscv.mk中打算使用rv32g)的.
 COMMON_CFLAGS += -march=rv32i -mabi=ilp32
 #汇编器选项
 ASFLAGS       += -march=rv32i -mabi=ilp32    # ASM 也要用 32 位指令集

@@ -61,27 +61,27 @@ static uint32_t *vgactl_port_base = NULL;
 
 
 
-/***************************************************************************************
+/**
  * screen_width - 获取屏幕宽度
  * @return: 当前屏幕宽度 (像素). 一般来说, return语句直接返回`SCREEN_W`的值.
- ***************************************************************************************/
+ **/
 static uint32_t screen_width() {
   return MUXDEF(CONFIG_TARGET_AM, io_read(AM_GPU_CONFIG).width, SCREEN_W);
 }
 
-/***************************************************************************************
+/**
  * screen_height - 获取屏幕高度
  * 同上.
- ***************************************************************************************/
+ **/
 static uint32_t screen_height() {
   return MUXDEF(CONFIG_TARGET_AM, io_read(AM_GPU_CONFIG).height, SCREEN_H);
 }
 
 
-/***************************************************************************************
+/**
  * screen_size - 获取显存总大小 (字节)
  * @return: width * height * 4 (即 32-bit RGBA 模式下的总字节数)。
- ***************************************************************************************/
+ **/
 static uint32_t screen_size() {
   return screen_width() * screen_height() * sizeof(uint32_t);
 }
@@ -97,13 +97,13 @@ static uint32_t screen_size() {
 static SDL_Renderer *renderer = NULL;
 static SDL_Texture *texture = NULL;
 
-/***************************************************************************************
+/**
  * init_screen - 初始化 SDL 窗口 (仅宿主为 Linux/Windows 时)
  * 
  * 【功能】
  * 调用 SDL 库创建窗口、渲染器和纹理，为显示做准备。
  * 并设置窗口标题为 "riscv32-NEMU" 等。
- ***************************************************************************************/
+ **/
 static void init_screen() {
   SDL_Window *window = NULL;
   char title[128];
@@ -119,11 +119,11 @@ static void init_screen() {
   SDL_RenderPresent(renderer);
 }
 
-/***************************************************************************************
+/**
  * update_screen - 刷新 SDL 屏幕内容.(将 vmem 中的显存数据纹理化，并复制到 SDL 渲染器，最终呈现到窗口。) 调库, 不看了. 
-*  
-* 调用层级: device_update()调用vga_update_screen(), 后者在检查到sync寄存器非0时调用update_screen().
- ***************************************************************************************/
+ *  
+ * 调用层级: device_update()调用vga_update_screen(), 后者在检查到sync寄存器非0时调用update_screen().
+ **/
 static inline void update_screen() {
   SDL_UpdateTexture(texture, NULL, vmem, SCREEN_W * sizeof(uint32_t));
   SDL_RenderClear(renderer);
@@ -147,12 +147,12 @@ static inline void update_screen() {
 #endif
 
 
-//
-/***************************************************************************************
+
+/**
  * vga_update_screen - 检查并处理屏幕刷新同步信号. 在检查到sync寄存器非0时调用update_screen().
  * 
  * 调用层级: device_update()调用vga_update_screen().
- ***************************************************************************************/
+ **/
 void vga_update_screen() {
   // 当 sync 寄存器非零时调用 update_screen()，然后将 sync 寄存器清零
   if (vgactl_port_base[1]) {  // vgactl_port_base[1] 是 sync 寄存器
@@ -162,7 +162,7 @@ void vga_update_screen() {
 }
 
 
-/***************************************************************************************
+/**
  * init_vga - 初始化 VGA 设备
  * 
  * 【功能】
