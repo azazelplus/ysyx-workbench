@@ -1,7 +1,7 @@
 # 架构平台mk, 会被$(AM_HOME)/Makefile在参数ARCH = xxx-npc2时include.
 
 # 调用逻辑(以cpu-tests为例. 运行其他测试也很简单)
-# 首先执行cpu-test/Makefile的run, 它会构建一个Makefile.[待测试程序], 然后make运行它.
+# 首先执行cpu-test/Makefile的run, 它会构建一个临时的 `Makefile.[待测试程序]`, 然后make运行它.
 # 这个生成的Makefile.[待测试程序]会include [AM_HOME]/Makefile. 
 # 然后[AM_HOME]/Makefile会include /scripts/platform/npc2.mk, 
 # 而npc2.mk会$(MAKE) run npc2/Makefile
@@ -67,7 +67,7 @@ image: image-dep
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
-# run目标: 调用NPC2_HOME下的Makefile的run规则, 运行生成的二进制镜像文件.
+# run目标: 调用 `NPC2_HOME/Makefile` 的run规则, 并传入生成的二进制镜像文件. 前者将编译出可运行的verilator仿真程序, 并把客户程序image加载进去, 然后运行.
 # 同时传递 ELF 文件路径用于 ftrace
 run: insert-arg
 	$(MAKE) -C $(NPC2_HOME) run IMG=$(IMAGE).bin ELF=$(IMAGE).elf

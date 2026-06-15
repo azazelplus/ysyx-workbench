@@ -1,5 +1,5 @@
-// MiniRV 流水线寄存器 (Pipeline Register with inst_valid flush semantics)
-package minirv
+// AzazeRV 流水线寄存器 (Pipeline Register with inst_valid flush semantics)
+package azazerv
 
 import chisel3._
 import chisel3.util._

@@ -43,7 +43,7 @@ void cpu_reset();
 void cpu_exec(uint64_t n);
 
 /**
- * cpu_exit - 清理并退出 CPU 仿真
+ * cpu_exit - 清理并退出 CPU 仿真. 实现在
  */
 void cpu_exit();
 

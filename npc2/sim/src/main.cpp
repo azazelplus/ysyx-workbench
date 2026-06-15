@@ -32,7 +32,7 @@ uint8_t mem[MEM_SIZE];
  * @return: 加载的字节数，失败返回 -1
  */
 static long load_program(const char* filename) {
-    FILE* fp = fopen(filename, "rb");
+    FILE* fp = fopen(filename, "rb");   // rb = read binary
     if (!fp) {
         printf("[ERROR] Cannot open file: %s\n", filename);
         return -1;
@@ -55,7 +55,8 @@ static long load_program(const char* filename) {
     return read_size;
 }
 
-// ============ 主函数 ============
+
+// ===================== sim主函数 =======================
 int main(int argc, char** argv) {
     // 默认配置
     const char *img_file = NULL;

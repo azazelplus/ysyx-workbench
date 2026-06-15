@@ -1,5 +1,5 @@
-// MiniRV 寄存器堆
-package minirv
+// AzazeRV 寄存器堆
+package azazerv
 
 import chisel3._
 import chisel3.util._
@@ -43,6 +43,7 @@ class GPRFile extends Module {
 
 /**
   * CSR寄存器
+  * CSRFile 持续输出 mtvec 和 mepc 的值, 供 EXU 作为跳转地址使用
   */
 class CSRFile extends Module {
 

@@ -1,8 +1,8 @@
-package minirv.exu
+package azazerv.exu
 
 import chisel3._
 import chisel3.util._
-import minirv._
+import azazerv._
 
 /**
   * CSR ALU - 负责 CSR 读写数据的位运算逻辑

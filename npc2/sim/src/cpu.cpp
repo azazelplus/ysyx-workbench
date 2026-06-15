@@ -16,7 +16,7 @@
 
 #include "verilated.h"
 #include "verilated_vcd_c.h"
-#include "VMiniRV.h"
+#include "VAzazeRV.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -26,7 +26,7 @@
 uint64_t g_cycle = 0;   //当前周期数
 uint32_t g_current_pc = 0;  //当前周期pc值
 
-static VMiniRV* dut = nullptr;
+static VAzazeRV* dut = nullptr;
 static VerilatedVcdC* tfp = nullptr;
 static uint64_t max_cycles = DEFAULT_MAX_CYCLES;
 static uint32_t last_pc = 0;
@@ -47,7 +47,7 @@ void cpu_init(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
     
     // 创建 DUT 实例
-    dut = new VMiniRV;
+    dut = new VAzazeRV;
     set_dut_ptr(dut);
     
     // 初始化外设
@@ -175,6 +175,8 @@ void cpu_exec(uint64_t n) {
     }
 }
 
+
+// 结束npc2的仿真. 清理资源和关闭波形文件
 void cpu_exit() {
     printf("\n[INFO] Simulation ended after %lu cycles.\n", g_cycle);
     

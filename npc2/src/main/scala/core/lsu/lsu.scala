@@ -1,4 +1,4 @@
-// MiniRV 访存单元 (Load/Store Unit)
+// AzazeRV 访存单元 (Load/Store Unit)
 // Load/Store 指令通过 AXI-like 接口访问 DMEM, 其他指令透传到 WBU.
 
 /*
@@ -11,11 +11,11 @@
  * └──────────────┴──────────────┴──────────────┴──────────────┴──────────────────────────────────────┘
  */
 
-package minirv.lsu
+package azazerv.lsu
 
 import chisel3._
 import chisel3.util._
-import minirv._
+import azazerv._
 
 /**
   * L/S指令区分: 内存操作类型 (funct3)

@@ -26,7 +26,7 @@
 #define DIFFTEST_REF_PATH "/home/azazel/ysyx-workbench/nemu/build/riscv32-nemu-interpreter-so"
 
 // ============ ITRACE (指令追踪) ============
-#define ENABLE_ITRACE   1  // 编译开关
+#define ENABLE_ITRACE   0  // 编译开关
 #define REALTIME_ITRACE 0 // 实时打印模式
 
 // ============ FTRACE (函数追踪) ============
@@ -49,6 +49,6 @@
 
 // ============ WAVEFORM (波形生成) ============
 // 生成 wave.vcd，可用 gtkwave 查看
-#define ENABLE_WAVEFORM 1
+#define ENABLE_WAVEFORM 0
 
 #endif /* __CONFIG_H__ */

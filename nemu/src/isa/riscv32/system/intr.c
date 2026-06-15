@@ -1,5 +1,5 @@
 /***************************************************************************************
-* nemu的interruption 实现.
+* nemu的interruption 实现. riscv32 和 riscv64 共用.
 ***************************************************************************************/
 
 #include <isa.h>
@@ -42,7 +42,10 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc) {
   cpu.mepc = epc;   // 写mepc寄存器, 保存案发现场 PC
   cpu.mcause = NO;  // 写mcause寄存器, 记录异常原因
 
-  // mstatus 处理: 备份 MIE 到 MPIE, 关闭 MIE, 设置 MPP=11(M-mode)
+  // mstatus 处理: 进入M-mode, 要求mstatus寄存器:
+  // 1.备份 MIE(Machine Interrupt Enable（机器模式中断使能位），位于 mstatus 的第 3 位。) 到 MPIE(Machine Previous Interrupt Enable（机器模式先前中断使能位）), 
+  // 2.置零 MIE. 从而无条件屏蔽机器模式中断.
+  // 3.设置 MPP=11(M-mode)
   word_t mie = (cpu.mstatus >> 3) & 1;
   cpu.mstatus = (cpu.mstatus & ~(1 << 7)) | (mie << 7);  // MPIE = MIE
   cpu.mstatus &= ~(1 << 3);                                // MIE = 0

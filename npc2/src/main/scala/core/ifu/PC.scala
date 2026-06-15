@@ -1,9 +1,9 @@
-// MiniRV 程序计数器 (Program Counter)
-package minirv.ifu
+// AzazeRV 程序计数器 (Program Counter)
+package azazerv.ifu
 
 import chisel3._
 import chisel3.util._
-import minirv._
+import azazerv._
 
 /**
   * PC - 程序计数器

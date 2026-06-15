@@ -10,7 +10,7 @@
 //   s_ifu_grant: IFU 获得总线，转发 AR→R 事务
 //   s_lsu_grant: LSU 获得总线，转发读(AR→R)或写(AW+W→B)事务
 
-package minirv
+package azazerv
 
 import chisel3._
 import chisel3.util._

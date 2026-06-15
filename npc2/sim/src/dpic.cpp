@@ -17,8 +17,8 @@
 #include <ctime>       // 用于时钟功能
 
 // Verilator 生成的头文件（用于直接访问内部信号）
-#include "VMiniRV.h"
-#include "VMiniRV___024root.h"
+#include "VAzazeRV.h"
+#include "VAzazeRV___024root.h"
 
 // ========================== 存储器定义 ==============================
 // 存储器大小：128MB
@@ -78,7 +78,7 @@ void init_device() {
 
 // ============ DUT 指针（ebreak_handler 和 DiffTest 共用）============
 // 由 main.cpp 调用 set_dut_ptr() 设置，用于直接访问 Verilator 内部信号
-static VMiniRV* g_dut = nullptr;
+static VAzazeRV* g_dut = nullptr;
 
 // 全局仿真周期计数（由 main.cpp 定义，此处声明为外部变量）
 extern uint64_t g_cycle;
@@ -88,7 +88,7 @@ extern uint64_t g_cycle;
  * 
  * @param dut: DUT 指针
  */
-void set_dut_ptr(VMiniRV* dut) {
+void set_dut_ptr(VAzazeRV* dut) {
     g_dut = dut;
 }
 
@@ -232,7 +232,7 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
             uint8_t ch = data & 0xFF;
             dtrace.log_write("SERIAL", addr, ch, 1);
             putchar(ch);
-            fflush(stdout);
+            fflush(stdout); // 确保字符立即输出
         }
         return;
     }
@@ -269,7 +269,7 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
  */
 extern "C" void ebreak_handler() {
     // 直接读取 Verilator 内部寄存器堆，与 DiffTest 开关无关
-    uint32_t exit_code = g_dut ? g_dut->rootp->MiniRV__DOT__gprfile__DOT__regs_10 : 0;
+    uint32_t exit_code = g_dut ? g_dut->rootp->AzazeRV__DOT__gprfile__DOT__regs_10 : 0;
     
     printf("\n[INFO] Simulation ended after %lu cycles.\n", g_cycle);
 

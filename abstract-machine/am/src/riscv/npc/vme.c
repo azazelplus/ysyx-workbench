@@ -1,4 +1,4 @@
-// vitrual
+// vitrual memory emulator. 目前不支持虚拟内存, 相关函数都返回默认值. 后续会实现这些函数来支持虚拟内存.
 
 #include <am.h>
 

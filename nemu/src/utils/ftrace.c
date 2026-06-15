@@ -441,7 +441,7 @@ void ftrace_trace(uint32_t pc, uint32_t inst, uint32_t next_pc) {
   // log_enable() 控制是否在 [CONFIG_TRACE_START, CONFIG_TRACE_END] 范围内记录
   char logline[FTRACE_LOG_SIZE];
   ftrace_format(logline, sizeof(logline), &e);
-  log_write("%s\n", logline);
+  log_write("[ftrace] %s\n", logline);
 #endif
 }
 

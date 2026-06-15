@@ -1,11 +1,11 @@
-// MiniRV 共享定义
-package minirv
+// AzazeRV 共享定义
+package azazerv
 
 import chisel3._
 import chisel3.util._
 
 /**
-  * MiniRV 配置常量
+  * AzazeRV 配置常量
   */
 object Config {
   val XLEN = 32          // eXecution length 数据宽度 (RV32) npc2是32位cpu.

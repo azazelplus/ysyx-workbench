@@ -1,15 +1,15 @@
-# abstract-machine的主目录makefile.  Makefile for AbstractMachine Kernels and Libraries.
-# AM的主makefile, 用来被下面三种情况调用.
-# AM内核的Makefile  $(AM_HOME)/am/Makefile 内include它, 来构建am内核.
-# kilb库的Makefile($(AM_HOME)/klib/Makefile) include它, 来构建klib库.
-# cpu-tests的Makefile include它, 来构建测试程序并启动nemu运行.
-# am/kernels下的更复杂的测试程序
+# abstract-machine的主目录makefile.  Makefile for AbstractMachine Kernels and Libraries. 用来被下几情况调用:
+# 	AM内核的Makefile  $(AM_HOME)/am/Makefile 内include它, 来构建am内核.
+# 	kilb库的Makefile($(AM_HOME)/klib/Makefile) include它, 来构建klib库.
+# 	cpu-tests的Makefile include它, 来构建测试程序并启动nemu运行.
+# 	am/kernels下的更复杂的测试程序
+
 
 ##########################################################
 # 运行本makefile需要提供参数:  
 
 # MAKECMDGOALS
-# 这个是所有makefile普遍的没什么好说的. 
+# 你在命令行上指定的目标. 这个是所有makefile普遍的没什么好说的. 
 
 # SRCS
 # 要编译的源码. 由调用am的上一层makefile提供.
@@ -18,10 +18,10 @@
 # 在cpu测试中被定义为对应测试文件 `SRCS = tests/$(ALL).c`, 比如 `dummy.c`
 
 # ARCH
-# 要用的架构. 本am根据此来include对应的架构mk. 会被本makefile解析为 ISA 和 PLATFORM 2个变量.
+# 要用的架构. 你在命令行提供. 本am根据此来include对应的架构mk. 会被本makefile解析为 ISA 和 PLATFORM 2个变量.
 
 # NAME
-# 当前正在编译的模块/库/程序的名称. 它由是谁调用了本makefile决定:
+# 当前正在编译的模块/库/程序的名称. 由是谁调用了本makefile提供:
 # 被内核 	`am/Makefile`调用时, 			定义为`NAME := am`; 
 # 被库 		`klib/Makefile`调用时, 			定义为`NAME = klib`; 
 # 被cpu测试	`cpu-tests/Makefile`调用时, 	定义为`NAME = dummy`.
@@ -31,10 +31,28 @@
 ##########################################################
 
 
+
+
+
+##########################################################
+# 本Makefile的run:
+# 由具体架构的.mk提供(它们被include在本Makefile中). 本Makefile的公共部分主要编译出客户程序image, 而具体架构的
+
+
+##########################################################
+
+
+
+
+
+
+
+
+
 ## 本makefile的调用层级:
-# 如果MAKECMDGOALS是run, 本makefile的run规则在架构.mk中定义.
-# 如果ARCH=xxx-npc, 	则run定义在 `/scripts/platform/npc.mk` 中, 会执行`make -C $(NPC_HOME) run IMG=$(IMAGE).bin`, 开一个子进程运行npc的Makefile的run规则, 传入IMG参数(本Makefile编译好的二进制文件).
-# 如果ARCH=xxx-nemu, 	则run定义在 `/scripts/platform/nemu.mk` 中, 会执行`make -C $(NEMU_HOME) run IMG=$(IMAGE).bin`, 开一个子进程运行nemu的Makefile的run规则, 传入IMG参数(本Makefile编译好的二进制文件).
+# 如果MAKECMDGOALS=run, 本makefile的run规则在 `架构.mk` 中定义: 
+# 	如果ARCH=xxx-npc, 	则run定义在 `/scripts/platform/npc.mk` 中, 会执行`make -C $(NPC_HOME) run IMG=$(IMAGE).bin`, 开一个子进程运行npc的Makefile的run规则, 传入IMG参数(本Makefile编译好的二进制文件).
+# 	如果ARCH=xxx-nemu, 	则run定义在 `/scripts/platform/nemu.mk` 中, 会执行`make -C $(NEMU_HOME) run IMG=$(IMAGE).bin`, 开一个子进程运行nemu的Makefile的run规则, 传入IMG参数(本Makefile编译好的二进制文件).
 
 
 
@@ -154,7 +172,7 @@ LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
 ## 3. General Compilation Flags编译命令选项变量.
 
 ### 交叉编译选项(Cross) compilers, e.g., mips-linux-gnu-g++
-# CROSS_COMPILE变量来自ARCH变量include的mk文件(见下文4.)
+# CROSS_COMPILE变量来自ARCH变量include的mk文件(见下文 ## 4.)
 # 例如, 在riscv.mk中被定义为 `riscv64-linux-gnu-`
 AS        = $(CROSS_COMPILE)gcc
 CC        = $(CROSS_COMPILE)gcc

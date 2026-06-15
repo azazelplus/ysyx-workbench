@@ -21,28 +21,28 @@ import mill.bsp._
 
 
 
-//定义一个名叫 `minirv` 的顶级 Mill 模块（singleton），它继承自 `SbtModule`，并且用 `m` 作为该模块在内部的自引用名字（self-alias）.
+//定义一个名叫 `azazerv` 的顶级 Mill 模块（singleton），它继承自 `SbtModule`，并且用 `m` 作为该模块在内部的自引用名字（self-alias）.
 
 // SbtModule是mill内置的一个Scala类模板, 它有以下方法:
   // compile 编译任务
   // test 测试任务
-  // 运行任务👇. 它们都会做: 编译项目代码, 启动一个新的JVM子进程, 然后运行项目. 具体来说: 首先mill程序是一个JVM程序. 它自己的main方法在jar包里. 它跑起来后, 调用运行方法(run或runMain). 这个方法开了一个新的子JVM, 新程序寻找main入口(也就是MiniRV.scala中的object MiniRV extends App...这个启动实例, 它调用了main), 整个 真正的minirv项目 作为子进程 从它开始.
+  // 运行任务👇. 它们都会做: 编译项目代码, 启动一个新的JVM子进程, 然后运行项目. 具体来说: 首先mill程序是一个JVM程序. 它自己的main方法在jar包里. 它跑起来后, 调用运行方法(run或runMain). 这个方法开了一个新的子JVM, 新程序寻找main入口(也就是AzazeRV.scala中的object AzazeRV extends App...这个启动实例, 它调用了main), 整个 真正的azazerv项目 作为子进程 从它开始.
     // 1. run 运行任务. mill找到项目中唯一的main方法, 然后调用它. 如果有多个, 报错.
-        //但是如果在minirv对象中写  override def mainClass = Some("minirv.MiniRV")后, run会默认运行这个入口!  
-        //目前我们是这样实践的. 这样可以方便地放入一些测试用的入口, 比如hello.Hello(见./src/main/scala/hello/Hello.scala).  我们可以用./mill minirv.runMain minirv.Hello 来运行一些小测试, 同时用./mill minirv.run来运行主程序.
+        //但是如果在azazerv对象中写  override def mainClass = Some("azazerv.AzazeRV")后, run会默认运行这个入口!  
+        //目前我们是这样实践的. 这样可以方便地放入一些测试用的入口, 比如hello.Hello(见./src/main/scala/hello/Hello.scala).  我们可以用./mill azazerv.runMain azazerv.Hello 来运行一些小测试, 同时用./mill azazerv.run来运行主程序.
     // 2. runMain 找到项目中所有main方法, 然后调用它们. 如果没有, 报错.
-    // 3. 带参数的runMain: ./mill minirv.runMain minirv.MiniRV  运行特定的main方法.
-              //  ./mill minirv.runMain minirv.MiniRV
+    // 3. 带参数的runMain: ./mill azazerv.runMain azazerv.AzazeRV  运行特定的main方法.
+              //  ./mill azazerv.runMain azazerv.AzazeRV
               //        ^^^^^^ ^^^^^^^  ^^^^^^ ^^^^^^
               //          1      2       3      4   
               // 其中, 
-              // 1是build.mill中的object minirv. 角色是整个项目名称.
-              // 2是上述minirv的一个方法.
+              // 1是build.mill中的object azazerv. 角色是整个项目名称.
+              // 2是上述azazerv的一个方法.
               // 3和4被作为参数传给runMain方法. 它们是一个完整类名: package名.类名
-              // 3是package名. 在./src/main/scala/minirv/MiniRV.scala的开头: package minirv. 4是类名. `object MiniRV extends App...`
+              // 3是package名. 在./src/main/scala/azazerv/AzazeRV.scala的开头: package azazerv. 4是类名. `object AzazeRV extends App...`
 
   // console 启动Scala REPL控制台
-// mill 可执行文件 将会解析传入的参数, 比如`minirv.run`, 分割为`minirv`和`run`. mill会找到 `minirv` 模块, 然后调用其 `run` 方法.
+// mill 可执行文件 将会解析传入的参数, 比如`azazerv.run`, 分割为`azazerv`和`run`. mill会找到 `azazerv` 模块, 然后调用其 `run` 方法.
  
 object `npc2` extends SbtModule { m =>
   // 指定源代码路径. super.millSourcePath 默认是当前目录, 这里 / os.up 表示上一级目录
@@ -51,8 +51,8 @@ object `npc2` extends SbtModule { m =>
   // scala版本. 必须和chisel兼容...
   override def scalaVersion = "2.13.16"
   
-  // 指定默认的 main 类（这样 ./mill npc2.run 就会运行 MiniRV, 而不是在有多个main入口的时候报错让你选择.
-  override def mainClass = Some("minirv.MiniRV")
+  // 指定默认的 main 类（这样 ./mill npc2.run 就会运行 AzazeRV, 而不是在有多个main入口的时候报错让你选择.
+  override def mainClass = Some("azazerv.AzazeRV")
 
   // scala编译选项.
   override def scalacOptions = Seq(

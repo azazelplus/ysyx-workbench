@@ -4,4 +4,4 @@ EXU.sv
 LSU.sv
 WBU.sv
 RegFile.sv
-MiniRV.sv
+AzazeRV.sv

@@ -1,12 +1,12 @@
 
-# MiniRV - 简易 RISC-V CPU
+# AzazeRV - 简易 RISC-V CPU
 
 一个使用 Chisel + Mill 框架实现的简易 RV32I CPU。
 
 ## 模块结构
 
 ```
-MiniRV (顶层)
+AzazeRV (顶层)
 ├── IFU (取指单元) - 维护 PC，从指令存储器读取指令
 ├── IDU (译码单元) - 解析指令，生成立即数，读寄存器，生成控制信号
 ├── EXU (执行单元) - ALU 运算，分支/跳转计算
@@ -31,7 +31,7 @@ MiniRV (顶层)
 ./mill chisel_template.compile
 
 # 生成 Verilog
-./mill chisel_template.runMain minirv.MiniRV
+./mill chisel_template.runMain azazerv.AzazeRV
 
 # 运行测试
 ./mill chisel_template.test

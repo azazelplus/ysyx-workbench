@@ -1,9 +1,9 @@
-// MiniRV 译码单元 (Instruction Decode Unit)
-package minirv.idu
+// AzazeRV 译码单元 (Instruction Decode Unit)
+package azazerv.idu
 
 import chisel3._
 import chisel3.util._
-import minirv._
+import azazerv._
 
 /**
   * IDU - 译码单元

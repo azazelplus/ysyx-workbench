@@ -1,9 +1,9 @@
-// MiniRV 写回单元 (Write Back Unit)
-package minirv.wbu
+// AzazeRV 写回单元 (Write Back Unit)
+package azazerv.wbu
 
 import chisel3._
 import chisel3.util._
-import minirv._
+import azazerv._
 
 /**
   * WBU - 写回单元 (pipeline drain)

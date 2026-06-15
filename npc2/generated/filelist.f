@@ -18,5 +18,5 @@ PipeReg2_IF2ID.sv
 PipeReg1_ID2EX.sv
 Queue1_EX2LS.sv
 Queue1_LS2WB.sv
-verification/MiniRV_Verification.sv
-MiniRV.sv
+verification/AzazeRV_Verification.sv
+AzazeRV.sv

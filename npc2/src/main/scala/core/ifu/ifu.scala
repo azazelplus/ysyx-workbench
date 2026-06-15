@@ -1,9 +1,9 @@
-// MiniRV 取指单元 (Instruction Fetch Unit)
-package minirv.ifu
+// AzazeRV 取指单元 (Instruction Fetch Unit)
+package azazerv.ifu
 
 import chisel3._
 import chisel3.util._
-import minirv._
+import azazerv._
 
 
 /**

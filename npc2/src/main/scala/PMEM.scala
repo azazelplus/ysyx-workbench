@@ -1,8 +1,8 @@
-// MiniRV 统一物理存储器模块
+// AzazeRV 统一物理存储器模块
 // 封装所有 DPI-C 存储器访问接口
 // 提供统一的 AXI-Lite Slave 接口给 Arbiter
 
-package minirv
+package azazerv
 
 import chisel3._
 import chisel3.util._
@@ -25,7 +25,7 @@ class PMEM extends Module {
     // ========== 统一的 AXI-Lite Slave 接口 ==========
     val axi = new AXILiteSlaveIO
 
-    // ========== EBREAK 检测接口 MiniRV->PMEM ==========
+    // ========== EBREAK 检测接口 AzazeRV->PMEM ==========
     val ebreak_inst  = Input(UInt(32.W))
     val ebreak_valid = Input(Bool())
   })

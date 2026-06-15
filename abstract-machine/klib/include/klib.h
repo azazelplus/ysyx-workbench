@@ -9,6 +9,7 @@
 extern "C" {
 #endif
 
+// 这个宏控制ARCH=native时, klib的stdio.c和string.c是否参与编译
 //#define __NATIVE_USE_KLIB__
 
 // string.h

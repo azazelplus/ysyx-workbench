@@ -1,5 +1,5 @@
 // Crossbar. 未实现
-package minirv
+package azazerv
 
 import chisel3._
 import chisel3.util._

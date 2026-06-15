@@ -1,4 +1,4 @@
-# 这是am内核, 即`~/abstract-machine/am`的 Makefile. 它调用~/abstract-machine主Makefile.
+# 这是am内核,  Makefile. 它调用~/abstract-machine主Makefile.
 
 NAME     := am
 SRCS      = $(addprefix src/, $(AM_SRCS))

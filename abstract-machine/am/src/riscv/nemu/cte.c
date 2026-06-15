@@ -52,7 +52,7 @@ Context* __am_irq_handle(Context *c) {
           break;
         }
         default: {
-          // TODO: add more exception types here when needed
+          // T
           ev.event = EVENT_ERROR;
           break;
         }
@@ -85,7 +85,7 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
 
 
 /**
- * kcontext - 在指定栈空间(nemu模拟器拥有的虚拟内存的一段地址)创建内核线程的初始上下文, 并设置sp在栈顶.
+ * kcontext() - 在指定栈空间(nemu模拟器拥有的虚拟内存的一段地址)创建内核线程的初始上下文, 并设置sp在栈顶.
  * 在指定的栈空间上创建一个新的上下文，使得当调度器(对yield-os就是schedule函数)切换到这个上下文时, CPU 会从 entry 函数开始执行，并传入 arg 作为参数。
  * @param kstack: 内核栈的地址范围 (Area.start = 栈底, Area.end = 栈顶, 是一个Area结构体(二元数组).)
  * @param entry:  线程入口函数指针
@@ -171,7 +171,7 @@ void iset(bool enable) {
 以am-test中的yield test来分析内陷调用链条.
 
 执行make ARCH=riscv32-nemu run mainargs=i后,
-
+ 
 * main函数作为客户函数, 首先执行: `cte_init(simple_trap);` 来注册异常处理函数.
 
   * cte_init函数所做的: 令user_handler空函数句柄注册为传入的参数, 即simple_trap函数, 并把符号__am_asm_trap放入nemu的mtvec寄存器. 

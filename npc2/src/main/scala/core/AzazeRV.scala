@@ -1,4 +1,4 @@
-// MiniRV 顶层模块 - 多周期握手版本
+// AzazeRV 顶层模块 - 多周期握手版本
 //
 // ┌─────────────────────────────── 整体架构 ──────────────────────────────────┐
 // │                                                                          │
@@ -33,20 +33,20 @@
 // │                                                                        │
 // └────────────────────────────────────────────────────────────────────────┘
 
-package minirv
+package azazerv
 
 import chisel3._
 import chisel3.util._
-import minirv.ifu._
-import minirv.idu._
-import minirv.exu._
-import minirv.lsu._
-import minirv.wbu._
+import azazerv.ifu._
+import azazerv.idu._
+import azazerv.exu._
+import azazerv.lsu._
+import azazerv.wbu._
 import _root_.circt.stage.ChiselStage
 
 
 /**
-  * MiniRV 顶层模块 - 多周期握手实现
+  * AzazeRV 顶层模块 - 多周期握手实现
   *
   * 数据通路：IFU -> PipeReg -> IDU -> PipeReg -> EXU -> Queue -> LSU -> Queue -> WBU
   *   - if_id_q, id_ex_q 使用 PipeReg (支持 inst_valid 冲刷语义)
@@ -57,7 +57,7 @@ import _root_.circt.stage.ChiselStage
   *   - 无数据前递 (FWU) - 暂无
   *   - 无暂停逻辑 (HDU) - 暂无
   */
-class MiniRV extends Module {
+class AzazeRV extends Module {
   val io = IO(new Bundle {
     val debug_pc = Output(UInt(Config.ADDR_WIDTH.W))
     val debug_inst = Output(UInt(Config.INST_WIDTH.W))
@@ -235,16 +235,16 @@ class MiniRV extends Module {
 
 /**
   * 生成 Verilog
-  * 运行命令：./mill npc2.runMain minirv.MiniRV
+  * 运行命令：./mill npc2.runMain azazerv.AzazeRV
   */
-object MiniRV extends App {
+object AzazeRV extends App {
   val outputDir = "generated"
 
   println(s"正在生成所有.sv 文件到 $outputDir/ ...")
   ChiselStage.emitSystemVerilogFile(
-    new MiniRV,
+    new AzazeRV,
     args = Array("--target-dir", outputDir),
     firtoolOpts = Array("-disable-all-randomization", "-strip-debug-info")
   )
-  println(s"生成完成！文件位置: $outputDir/MiniRV.sv")
+  println(s"生成完成！文件位置: $outputDir/AzazeRV.sv")
 }
