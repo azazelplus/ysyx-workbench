@@ -107,7 +107,7 @@ enum {
 // imm系列宏: 提取指令的立即数部分.
 // BITS宏: BITS(x, hi, lo): 从x中提取从lo到hi的位段. 如BITS(0b11110000, 7,4) = 0b1111
 // SEXT(Sign EXTend, 符号扩展)宏: `SEXT(x, len);` 把len位长的数x[有符号扩展]为64bit数. len是x的原始位宽. 如SEXT(0b1111,4) = 0xffffffff, SEXT(0b0111,4) = 0x00000007
-  // SEXT宏使用了 GCC的语句表达式语法扩展!!
+  // SEXT宏使用了 GCC的语句表达式语法扩展...
   // 1. 定义一个匿名结构体, 里面有一个len位长的带符号位域n: struct { int64_t n : len; } 紧接着声明这个结构体变量`__x`, 把__x内存的那个位域初始化为x. 
   //{ .n = x }是C99指定初始化器写法别忘了. 就好像struct Point p = { .x = 10, .y = 20 };
   // 2. 把__x.n进行uint64_t强制类型转换, 返回. 这样就实现了符号扩展.
@@ -301,10 +301,21 @@ do {
   INSTPAT("0000001 ????? ????? 001 ????? 01100 11", mulh   , R, R(rd) = ((int64_t)(sword_t)src1 * (int64_t)(sword_t)src2) >> 32);
   INSTPAT("0000001 ????? ????? 010 ????? 01100 11", mulhsu , R, R(rd) = ((int64_t)(sword_t)src1 * (uint64_t)src2) >> 32);
   INSTPAT("0000001 ????? ????? 011 ????? 01100 11", mulhu  , R, R(rd) = ((uint64_t)src1 * (uint64_t)src2) >> 32);
-  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = (sword_t)src1 / (sword_t)src2);
-  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = src1 / src2);
-  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = (sword_t)src1 % (sword_t)src2);
-  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = src1 % src2);
+
+  INSTPAT("0000001 ????? ????? 100 ????? 01100 11", div    , R, R(rd) = 
+  src2==0 ? -1 : ((sword_t)src1 / (sword_t)src2)
+  );
+
+  INSTPAT("0000001 ????? ????? 101 ????? 01100 11", divu   , R, R(rd) = 
+  src2==0 ? -1 : (src1 / src2)
+  );
+  INSTPAT("0000001 ????? ????? 110 ????? 01100 11", rem    , R, R(rd) = 
+  src2==0 ? src1 : ((sword_t)src1 % (sword_t)src2)
+  );
+
+  INSTPAT("0000001 ????? ????? 111 ????? 01100 11", remu   , R, R(rd) = 
+  src2==0 ? src1 : (src1 % src2)
+  );
   
 
   // ==================== System 指令 ====================
@@ -346,8 +357,8 @@ do {
   //模式匹配块结束
 
 
-
-  R(0) = 0; // reset $zero to 0
+  // reset $zero to 0
+  R(0) = 0; 
 
   return 0;
 }

@@ -312,3 +312,6 @@ void paddr_write(paddr_t addr, int len, word_t data) {
   // 如果既不是物理内存也不是 MMIO，地址非法，报错
   out_of_bound(addr);
 }
+
+
+

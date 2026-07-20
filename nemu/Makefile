@@ -79,10 +79,11 @@ endif
 -include $(NEMU_HOME)/include/config/auto.conf
 -include $(NEMU_HOME)/include/config/auto.conf.cmd
 
+# 脱掉引号
 remove_quote = $(patsubst "%",%,$(1))
 
-# Extract variabls from menuconfig
-# 我们当前的项目配置下, GUEST_ISA=riscv32, ENGINE=interpreter, 从而NAME=riscv32-nemu-interpreter.
+# Extract variabls from menuconfig.
+# 我们当前的menuconfig配置下, GUEST_ISA=riscv32, ENGINE=interpreter, 从而NAME=riscv32-nemu-interpreter.
 GUEST_ISA ?= $(call remove_quote,$(CONFIG_ISA))
 ENGINE ?= $(call remove_quote,$(CONFIG_ENGINE))
 NAME    = $(GUEST_ISA)-nemu-$(ENGINE)
