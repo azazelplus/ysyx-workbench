@@ -48,9 +48,9 @@ class IDU extends Module {
   val imm_b = Cat(Fill(19, inst(31)), inst(31), inst(7), inst(30, 25), inst(11, 8), 0.U(1.W))
   val imm_u = Cat(inst(31, 12), 0.U(12.W))
   val imm_j = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
-  val zimm  = inst(19, 15)
+  val zimm  = inst(19, 15)  // 5-bit zero-extended immediate for CSR instructions
 
-  // 根据 opcode 选择imm
+  // 根据 opcode 分类指令, 选择imm
   val imm = MuxLookup(opcode, 0.U)(Seq(
     Opcode.OP_IMM -> imm_i,
     Opcode.LOAD   -> imm_i,

@@ -36,6 +36,9 @@
 !/navy-apps/
 !/npc/
 !/npc2/
+# VS Code workspace settings for the npc2 Metals project root
+!/.vscode/
+!/.vscode/settings.json
 !/test/
 !/test/ldtest/
 
