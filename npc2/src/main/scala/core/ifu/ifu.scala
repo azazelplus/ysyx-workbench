@@ -2,6 +2,7 @@
 package azazerv.ifu
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 import azazerv._
 
@@ -9,46 +10,36 @@ import azazerv._
 /**
   * IFU - 取指单元
   *
-  * 功能：
-  * 1. 使用 PC 模块获取当前指令地址
-  * 2. 通过 AXI AR/R 接口从 PMEM 读取指令 (1-cycle SRAM)
-  * 3. 将 (pc, inst, inst_valid) 通过 Decoupled 接口传递给下游 Queue → IDU
+  * 根据 PC 通过 AXI-Lite AR/R 通道读取指令，并通过 Decoupled 接口
+  * 向下游传递 (pc, inst, inst_valid)。每次仅处理一笔在途取指请求。
   *
-  * 状态机 (简化版, 依赖 Queue(2) 缓冲):
+  * 状态机：
+  * - s_idle：下游就绪时发起 AR 请求；握手后锁存 PC，进入 s_wait。
+  * - s_wait：等待 R 响应并转发至下游；out.fire 后返回 s_idle。
+  * - s_flush：接收并丢弃跳转前的取指响应；r.fire 后返回 s_idle。
   *
-  *    ┌──────────┐  ar.fire &&   ┌──────────┐  out.fire   ┌──────────┐
-  *    │          │  !jump_en     │          │ && !jump_en │          │
-  *    │  s_idle  ├──────────────→│  s_wait  ├────────────→│  s_idle  │
-  *    │          │               │          │             │          │
-  *    └──┬───┬───┘               └──┬───────┘             └──────────┘
-  *       │   │                      │
-  *       │   │ar.fire &&            │ jump_en &&
-  *       │   │jump_en               │ !r.valid
-  *       │   │                      │
-  *       │   ▼                      ▼
-  *    ┌──┴──────┐              ┌──────────┐
-  *    │         │←─────────────┤          │
-  *    │ s_flush │              │  s_idle  │
-  *    │         │──r.fire─────→│          │
-  *    └─────────┘              └──────────┘
+  * 握手与 PC 更新：
+  * - s_wait 无跳转时，r.ready 跟随 out.ready，将下游反压传递至 R 通道。
+  * - 指令被下游接收后，PC 顺序递增 4；jump_en 优先将 PC 重定向至 jump_addr。
   *
-  * 关键设计：
-  * - s_idle 只在 out.ready 时发起 AR 请求，保证 r.fire 时 Queue 有空间
-  * - s_wait 的 r.ready 跟随 out.ready，jump 时强制 r.ready=true 丢弃过期数据
+  * 跳转冲刷（优先于正常状态转移）：
+  * - s_idle：若跳转与 ar.fire 同拍发生，进入 s_flush；否则保持 s_idle。
+  * - s_wait：停止向下游输出并强制接收响应；本拍 r.fire 则返回 s_idle，
+  *   否则进入 s_flush，等待并丢弃旧请求的响应。
   */
 
 
-class IFU extends Module {
+class IFU(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
     // ========== IFU->IDU ==========
     val out = Decoupled(new IF2ID)           // 输出: IFU->IDU, 传递取到的(pc, inst)
 
     // ========== EXU->IFU (控制冒险重定向) ==========
     val jump_en   = Input(Bool())                     // EXU->IFU, 是否跳转/分支成立
-    val jump_addr = Input(UInt(Config.ADDR_WIDTH.W))  // EXU->IFU, 跳转目标地址
+    val jump_addr = Input(UInt(cfg.addrBits.W))  // EXU->IFU, 跳转目标地址
 
     // ========== IFU<->PMEM (取指接口, AXI-Lite) ==========
-    val axi = new AXILiteMasterIO         // IFU 为 AXI-Lite Master (只使用 AR/R 通道)
+    val axi = new AXILiteMasterIO         // 对MEM用AXI通信
   })
 
   // 实例化 PC 模块
@@ -58,7 +49,7 @@ class IFU extends Module {
   pc.io.jump_en   := io.jump_en
   pc.io.jump_addr := io.jump_addr
   // =============================================================
-  // IFU 状态机 (简化版，依赖 Queue(2) 缓冲)
+  // IFU 状态机（单笔在途取指）
   // s_idle:   发送 AR 地址请求
   // s_wait:   等待 R 返回，直接输出到下游 Queue
   // s_flush:  跳转时丢弃 PMEM 正在返回的过期指令
@@ -67,7 +58,7 @@ class IFU extends Module {
   val state = RegInit(s_idle)
 
   // 锁存本次取指对应的 PC，用于与 R.data 组装 IF2ID
-  val reqPcReg = Reg(UInt(Config.ADDR_WIDTH.W))
+  val reqPcReg = Reg(UInt(cfg.addrBits.W))
 
   // Default
   io.axi.ar.valid := false.B

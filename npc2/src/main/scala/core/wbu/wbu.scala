@@ -2,6 +2,7 @@
 package azazerv.wbu
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 import azazerv._
 
@@ -11,19 +12,19 @@ import azazerv._
   * 功能: 将结果写回寄存器堆.
   * WBU 始终 ready (GPR 写是瞬时的), 仅在 io.in.valid 时实际写 GPR.
   */
-class WBU extends Module {
+class WBU(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
     // 来自 LSU
     val in = Flipped(Decoupled(new LS2WB))
 
     // 寄存器堆写端口
-    val rd_addr = Output(UInt(Config.REG_ADDR_W.W))
-    val rd_data = Output(UInt(Config.XLEN.W))
+    val rd_addr = Output(UInt(cfg.regAddrBits.W))
+    val rd_data = Output(UInt(cfg.dataBits.W))
     val rd_wen  = Output(Bool())
 
     // debug / ebreak 输出
-    val debug_pc   = Output(UInt(Config.ADDR_WIDTH.W))
-    val debug_inst = Output(UInt(Config.INST_WIDTH.W))
+    val debug_pc   = Output(UInt(cfg.addrBits.W))
+    val debug_inst = Output(UInt(cfg.instBits.W))
     val inst_valid = Output(Bool())  // 本周期有有效指令到达 WB 级
   })
 

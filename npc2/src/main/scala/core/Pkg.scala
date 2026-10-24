@@ -41,7 +41,7 @@
 
 //   /** false = use rs2, true = use immediate as ALU op2 */
 //   val aluOp2Imm = Bool()
-//   val aluFunc = ALUFunctions()
+//   val aluFunc = ALUFunction()
 //   val lsRead = Bool()
 //   val lsWrite = Bool()
 //   val funct3 = UInt(3.W)

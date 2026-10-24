@@ -5,6 +5,7 @@
 package azazerv
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 
 /**
@@ -20,7 +21,7 @@ import chisel3.util._
   *
   * 注意: Arbiter 保证同一时刻只有一个读或写请求，不会同时出现。
   */
-class PMEM extends Module {
+class PMEM(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
     // ========== 统一的 AXI-Lite Slave 接口 ==========
     val axi = new AXILiteSlaveIO
@@ -42,7 +43,7 @@ class PMEM extends Module {
   // =====================================================================
   val rd_idle :: rd_resp :: Nil = Enum(2)
   val rdState = RegInit(rd_idle)
-  val rdAddrReg = Reg(UInt(Config.ADDR_WIDTH.W))
+  val rdAddrReg = Reg(UInt(cfg.addrBits.W))
 
   pmem_read.raddr := rdAddrReg
 
@@ -78,8 +79,8 @@ class PMEM extends Module {
   val wrState = RegInit(wr_idle)
 
   // 锁存写请求
-  val wrAddrReg = Reg(UInt(Config.ADDR_WIDTH.W))
-  val wrDataReg = Reg(UInt(Config.XLEN.W))
+  val wrAddrReg = Reg(UInt(cfg.addrBits.W))
+  val wrDataReg = Reg(UInt(cfg.dataBits.W))
   val wrStrbReg = Reg(UInt(4.W))
 
   // PMEMWrite 默认不写

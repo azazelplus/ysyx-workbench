@@ -1,18 +1,10 @@
-// AzazeRV 共享定义
+// AzazeRV core共享定义
 package azazerv
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 
-/**
-  * AzazeRV 配置常量
-  */
-object Config {
-  val XLEN = 32          // eXecution length 数据宽度 (RV32) npc2是32位cpu.
-  val ADDR_WIDTH = 32    // 地址宽度
-  val INST_WIDTH = 32    // 指令宽度
-  val REG_ADDR_W = 5     // 寄存器地址宽度 (32个寄存器)
-}
 
 /**
   * RISC-V 指令操作码 (opcode) 定义
@@ -36,19 +28,20 @@ object Opcode {
   val JAL       = "b1101111".U(7.W)
 
   // System: ecall, ebreak, 6*csr
-  val SYSTEM    = "b1110011".U(7.W) 
+  val SYSTEM    = "b1110011".U(7.W)
 }
 
 /**
-  * CSR 操作类型 (funct3)
+  * CSR 操作类型 的 funct3 字段
   */
 object CSROp {
-  val RW  = "b001".U(3.W)
-  val RS  = "b010".U(3.W)
-  val RC  = "b011".U(3.W)
-  val RWI = "b101".U(3.W)
-  val RSI = "b110".U(3.W)
-  val RCI = "b111".U(3.W)
+  val RW  = "b001".U(3.W) //csrrw read/write
+  val RS  = "b010".U(3.W) //csrrs read/set
+  val RC  = "b011".U(3.W) //csrrc read/clear
+  //使用zimm字段的csr指令
+  val RWI = "b101".U(3.W) //csrrwi read/write immediate
+  val RSI = "b110".U(3.W) //csrrsi read/set immediate
+  val RCI = "b111".U(3.W) //csrrci read/clear immediate
 }
 
 /**
@@ -65,20 +58,21 @@ object CSRAddr {
   val marchid   = 0xF12.U(12.W)   // 架构标识 (只读)
 }
 
-/**
-  * ALU 操作码
-  */
-object ALUOp {
-  val ADD  = 0.U(4.W)
-  val SUB  = 1.U(4.W)
-  val AND  = 2.U(4.W)
-  val OR   = 3.U(4.W)
-  val XOR  = 4.U(4.W)
-  val SLL  = 5.U(4.W)   // shift left logic 逻辑左移
-  val SRL  = 6.U(4.W)   // shift right logic 逻辑右移
-  val SRA  = 7.U(4.W)   // shift right arithmetic 算术右移
-  val SLT  = 8.U(4.W)   // set less than 有符号比较
-  val SLTU = 9.U(4.W)   // set less than unsigned 无符号比较
+
+object ALUFunction extends ChiselEnum {
+  // 基础整数 ALU + M 扩展操作码。
+  // 其中 M 扩展由 EXU 路由到 MDU 执行，ALU 本体只实现基础整数运算。
+  val zero, add, sub, sll, slt, sltu, xor, srl, sra, or, and,
+      mul, mulh, mulhsu, mulhu, div, divu, rem, remu = Value
+}
+
+
+// ALU 输入操作数选择
+object ALUSrc1 extends ChiselEnum {
+  val rs1, pc, zero = Value
+}
+object ALUSrc2 extends ChiselEnum {
+  val rs2, imm, four = Value
 }
 
 /**
@@ -95,36 +89,53 @@ object BranchOp {
 
 /**
   * IFU -> IDU 接口
+  * 当前的行为:
+  * IFU不理解任何指令语义.
   */
-class IF2ID extends Bundle {
-  val pc   = UInt(Config.ADDR_WIDTH.W)
-  val inst = UInt(Config.INST_WIDTH.W)
+class IF2ID(implicit val cfg: CoreConfig) extends Bundle {
+  val pc   = UInt(cfg.addrBits.W)
+  val inst = UInt(cfg.instBits.W)
   val inst_valid = Bool()  // 指令有效性标志 (flush 时置 false)
 }
 
 /**
-  * IDU -> EXU 接口
-  */
-class ID2EX extends Bundle {
+* IDU -> EXU 接口.
+* 当前的行为:
+* IDU译码产生数据和控制信号, 后续流水线按需使用
+*/
+class ID2EX(implicit val cfg: CoreConfig) extends Bundle {
+
+  // 透传IFU2IDU, 指令元信息
   val inst_valid = Bool()                 // 指令有效性标志 (flush 时置 false)
-  val pc      = UInt(Config.ADDR_WIDTH.W)
-  val inst    = UInt(Config.INST_WIDTH.W) // 原始指令 (透传到WB级, 用于ebreak检测和debug)
-  val rs1_data = UInt(Config.XLEN.W)      // rs1 寄存器值
-  val rs2_data = UInt(Config.XLEN.W)      // rs2 寄存器值
-  val imm     = UInt(Config.XLEN.W)       // 立即数
-  val rd_addr = UInt(Config.REG_ADDR_W.W) // 目标寄存器地址
-  val alu_op  = UInt(4.W)                 // ALU 操作码
-  val alu_src = Bool()                    // ALU 第二操作数选择 (0: rs2, 1: imm)
+  val pc      = UInt(cfg.addrBits.W)
+  val inst    = UInt(cfg.instBits.W) // 原始指令 (透传到WB级, 用于ebreak检测和debug)
+
+  // 寄存器与操作数
+  val rs1_data = UInt(cfg.dataBits.W)      // rs1 寄存器值
+  val rs2_data = UInt(cfg.dataBits.W)      // rs2 寄存器值
+  //val rs1_addr = UInt(cfg.regAddrBits.W)  // rs1 寄存器地址
+  //val rs2_addr = UInt(cfg.regAddrBits.W)  // rs2 寄存器地址
+  val imm     = UInt(cfg.dataBits.W)       // 立即数
+
+  // 写回控制
+  val rd_addr = UInt(cfg.regAddrBits.W) // 目标寄存器地址
+  val reg_wen = Bool()                    // 寄存器写使能
+
+  // ALU & MDU控制
+  val alu_func = ALUFunction()            // ALU/MDU operation
+  val alu_src1 = ALUSrc1()                // rs1 / pc / zero
+  val alu_src2 = ALUSrc2()                // rs2 / imm / four
+
+  // 访存控制
   val mem_wen = Bool()                    // 内存写使能, =is_store
   val mem_ren = Bool()                    // 内存读使能, =is_load
   val mem_op  = UInt(3.W)                 // 内存操作类型 (funct3: lw/lbu/sw/sb)
-  val reg_wen = Bool()                    // 寄存器写使能
+
+  // 控制流
   val is_branch = Bool()                  // 是否为分支指令
   val branch_op = UInt(3.W)               // 分支类型 (funct3: beq/bne/blt/bge/bltu/bgeu)
   val is_jal    = Bool()                  // 是否为 JAL
   val is_jalr   = Bool()                  // 是否为 JALR
-  val is_lui    = Bool()                  // 是否为 LUI
-  val is_auipc  = Bool()                  // 是否为 AUIPC
 
   // CSR / System 信号
   val is_csr    = Bool()                  // 是否为 CSR 指令
@@ -138,13 +149,13 @@ class ID2EX extends Bundle {
 /**
   * EXU -> LSU 接口
   */
-class EX2LS extends Bundle {
+class EX2LS(implicit val cfg: CoreConfig) extends Bundle {
   val inst_valid = Bool()                     // 指令有效性标志 (flush 时置 false)
-  val pc         = UInt(Config.ADDR_WIDTH.W)  // 透传 PC (debug/ebreak)
-  val inst       = UInt(Config.INST_WIDTH.W)  // 透传指令 (debug/ebreak)
-  val alu_result = UInt(Config.XLEN.W)    // ALU 计算结果
-  val store_data = UInt(Config.XLEN.W)    // Store 写入数据（来自 rs2，经旁路后透传到 MEM 阶段）
-  val rd_addr    = UInt(Config.REG_ADDR_W.W)  // 目标寄存器地址
+  val pc         = UInt(cfg.addrBits.W)  // 透传 PC (debug/ebreak)
+  val inst       = UInt(cfg.instBits.W)  // 透传指令 (debug/ebreak)
+  val alu_result = UInt(cfg.dataBits.W)    // ALU 计算结果
+  val store_data = UInt(cfg.dataBits.W)    // Store 写入数据（来自 rs2，经旁路后透传到 MEM 阶段）
+  val rd_addr    = UInt(cfg.regAddrBits.W)  // 目标寄存器地址
   val mem_wen    = Bool()
   val mem_ren    = Bool()
   val mem_op     = UInt(3.W)              // 内存操作类型 (funct3)
@@ -154,48 +165,48 @@ class EX2LS extends Bundle {
 /**
   * LSU -> WBU 接口
   */
-class LS2WB extends Bundle {
+class LS2WB(implicit val cfg: CoreConfig) extends Bundle {
   val inst_valid = Bool()                   // 指令有效性标志 (flush 时置 false)
-  val pc      = UInt(Config.ADDR_WIDTH.W)   // 透传 PC (debug/ebreak)
-  val inst    = UInt(Config.INST_WIDTH.W)   // 透传指令 (debug/ebreak)
-  val wb_data = UInt(Config.XLEN.W)         // 写回数据
-  val rd_addr = UInt(Config.REG_ADDR_W.W)   // 写回寄存器地址
+  val pc      = UInt(cfg.addrBits.W)   // 透传 PC (debug/ebreak)
+  val inst    = UInt(cfg.instBits.W)   // 透传指令 (debug/ebreak)
+  val wb_data = UInt(cfg.dataBits.W)         // 写回数据
+  val rd_addr = UInt(cfg.regAddrBits.W)   // 写回寄存器地址
   val reg_wen = Bool()                      // 寄存器写使能
 }
 
 /**
   * DMEM AR 通道 (Read Address Channel)
   */
-class DMemAR extends Bundle {
-  val addr = UInt(Config.ADDR_WIDTH.W)
+class DMemAR(implicit val cfg: CoreConfig) extends Bundle {
+  val addr = UInt(cfg.addrBits.W)
 }
 
 /**
   * DMEM R 通道 (Read Data Channel)
   */
-class DMemR extends Bundle {
-  val data = UInt(Config.XLEN.W)
+class DMemR(implicit val cfg: CoreConfig) extends Bundle {
+  val data = UInt(cfg.dataBits.W)
 }
 
 /**
   * DMEM AW 通道 (Write Address Channel)
   */
-class DMemAW extends Bundle {
-  val addr = UInt(Config.ADDR_WIDTH.W)
+class DMemAW(implicit val cfg: CoreConfig) extends Bundle {
+  val addr = UInt(cfg.addrBits.W)
 }
 
 /**
   * DMEM W 通道 (Write Data Channel)
   */
-class DMemW extends Bundle {
-  val data = UInt(Config.XLEN.W)
+class DMemW(implicit val cfg: CoreConfig) extends Bundle {
+  val data = UInt(cfg.dataBits.W)
   val mask = UInt(4.W)
 }
 
 /**
   * DMEM B 通道 (Write Response Channel)
   */
-class DMemB extends Bundle {
+class DMemB(implicit val cfg: CoreConfig) extends Bundle {
   val resp = UInt(2.W)  // 0 = OK
 }
 
@@ -208,7 +219,7 @@ class DMemB extends Bundle {
   *   - w : LSU 发写数据 (Source)
   *   - b : LSU 收写响应 (Sink)
   */
-class DMemIO extends Bundle {
+class DMemIO(implicit val cfg: CoreConfig) extends Bundle {
   val ar = Decoupled(new DMemAR)
   val r  = Flipped(Decoupled(new DMemR))
   val aw = Decoupled(new DMemAW)
@@ -220,16 +231,16 @@ class DMemIO extends Bundle {
   * IMEM AR 通道 (Address Read Channel)
   * payload: addr, handshake: valid/ready
   */
-class IMemAR extends Bundle {
-  val addr = UInt(Config.ADDR_WIDTH.W)
+class IMemAR(implicit val cfg: CoreConfig) extends Bundle {
+  val addr = UInt(cfg.addrBits.W)
 }
 
 /**
   * IMEM R 通道 (Read Data Channel)
   * payload: data, handshake: valid/ready
   */
-class IMemR extends Bundle {
-  val data = UInt(Config.INST_WIDTH.W)
+class IMemR(implicit val cfg: CoreConfig) extends Bundle {
+  val data = UInt(cfg.instBits.W)
 }
 
 /**
@@ -238,27 +249,27 @@ class IMemR extends Bundle {
   *   - ar: IFU 发地址 (Source)
   *   - r : IFU 收数据 (Sink)
   */
-class IMemIO extends Bundle {
+class IMemIO(implicit val cfg: CoreConfig) extends Bundle {
   val ar = Decoupled(new IMemAR)
   val r  = Flipped(Decoupled(new IMemR))
 }
 
 // 打拍寄存器
-class PipeStage extends Module {
+class PipeStage(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
     val in  = Input(UInt(4.W))
     val out = Output(UInt(4.W))
   })
 
   // ① 定义一个寄存器，复位时值为 0，宽度为 4
-  val piped_value = RegInit(0.U(4.W)) 
+  val piped_value = RegInit(0.U(4.W))
 
   // ② 使用非阻塞逻辑：将输入赋值给寄存器
   // Chisel 会自动在 always @(posedge clock) 块中生成非阻塞赋值 (<=)
   piped_value := io.in
 
   // ③ 将寄存器的值输出
-  io.out := piped_value 
+  io.out := piped_value
 }
 // 结果：io.out 的值比 io.in 滞后一个时钟周期
 

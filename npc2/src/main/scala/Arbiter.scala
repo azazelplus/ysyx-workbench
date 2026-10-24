@@ -13,9 +13,10 @@
 package azazerv
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 
-class AXILiteArbiter extends Module {
+class AXILiteArbiter(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
     // 两个 Master 的AXI输入 (从 Arbiter 视角是 Flipped)
     val master0 = Flipped(new AXILiteMasterIO)  // IFU (只用 AR/R)

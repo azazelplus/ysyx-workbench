@@ -14,6 +14,7 @@
 package azazerv.lsu
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 import azazerv._
 
@@ -40,7 +41,7 @@ object MemOp {
   *   s_mem_write: 等待 DMEM B 通道返回写响应.
   *   s_done:      计算完成, 等待下游接收结果. io.out.valid = true.
   */
-class LSU extends Module {
+class LSU(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
     // ========== EXU->LSU ==========
     val in = Flipped(Decoupled(new EX2LS))
@@ -60,7 +61,7 @@ class LSU extends Module {
   val inReg = Reg(new EX2LS)
 
   // 锁存从 DMEM 读回的数据
-  val rdataReg = Reg(UInt(Config.XLEN.W))
+  val rdataReg = Reg(UInt(cfg.dataBits.W))
 
   // ========== 地址和字节偏移计算 (组合逻辑, 基于锁存的 inReg) ==========
   val addr = inReg.alu_result
@@ -100,7 +101,7 @@ class LSU extends Module {
   }
 
   // ========== Load 数据提取 (组合逻辑, 基于锁存的 rdataReg) ==========
-  val load_data = WireDefault(0.U(Config.XLEN.W))
+  val load_data = WireDefault(0.U(cfg.dataBits.W))
 
   switch(inReg.mem_op) {
     is(MemOp.LW) {

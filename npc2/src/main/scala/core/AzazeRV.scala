@@ -36,6 +36,7 @@
 package azazerv
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 import azazerv.ifu._
 import azazerv.idu._
@@ -57,10 +58,10 @@ import _root_.circt.stage.ChiselStage
   *   - 无数据前递 (FWU) - 暂无
   *   - 无暂停逻辑 (HDU) - 暂无
   */
-class AzazeRV extends Module {
+class AzazeRV(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
-    val debug_pc = Output(UInt(Config.ADDR_WIDTH.W))
-    val debug_inst = Output(UInt(Config.INST_WIDTH.W))
+    val debug_pc = Output(UInt(cfg.addrBits.W))
+    val debug_inst = Output(UInt(cfg.instBits.W))
   })
 
   // =================================================================================
@@ -235,9 +236,10 @@ class AzazeRV extends Module {
 
 /**
   * 生成 Verilog
-  * 运行命令：./mill npc2.runMain azazerv.AzazeRV
+  * 运行命令：sbt 'runMain azazerv.AzazeRV'
   */
 object AzazeRV extends App {
+  implicit val cfg: CoreConfig = CoreConfig()
   val outputDir = "generated"
 
   println(s"正在生成所有.sv 文件到 $outputDir/ ...")

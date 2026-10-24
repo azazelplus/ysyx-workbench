@@ -10,7 +10,7 @@ import chisel3.dontTouch
 /*   
 * 片上资源模拟 RAM 模块 的存储器. 简单双端口.
 * 时序特性: 异步读 + 同步写 + 写转发保护（同周期 RAW(虽然这正常情况下应该不会发生) , 返回最新数据）
-* 核心是`mem`, 用Mem()实例化出一个异步读同步写(这个读写逻辑是用户代码决定的)的硬件. Mem会被vivado综合为BRAM. BRAM硬件特性: 异步读同步写, 同一时刻读写同地址则返回旧值.
+* 核心是`mem`类, 用Mem()实例化出一个异步读同步写(这个读写逻辑是用户代码决定的)的硬件. Mem会被vivado综合为BRAM. BRAM硬件特性: 异步读同步写, 同一时刻读写同地址则返回旧值.
 * Mem()对象的.read方法是异步读, .write方法是同步写. 所以chisel设计上就希望调用这两个方法实现异步读(节省时钟周期)同步写(暴政存储内容不被噪声破坏)的存储器行为.
 */
 class AsyncMemModule(val depth: Int = 1024, val dataWidth: Int = 32)
@@ -89,8 +89,8 @@ class RAM(implicit val cfg: RAMConfig) extends Module {
   io.axi.b.bits.resp := 0.U   // 写响应设为 OKAY
 
   // =========================================================
-  // 读事务 AR→R 转换状态机.  INCR(Increment) Burst，流水化 outstanding
-  // 每个请求独立 readLatency 倒计时，多个请求延迟并行重叠
+  // 读事务 AR→R 转换状态机.  INCR(Increment) Burst, 流水化 outstanding
+  // 每个请求独立 readLatency 倒计时, 多个请求延迟并行重叠
   // R 通道不交织.同一时刻只服务一个突发的 beat.
   // =========================================================
   private val N = cfg.outstanding               // 设置的最大未完成事务数N, 即索引槽数

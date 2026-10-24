@@ -1,6 +1,7 @@
 package azazerv
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 
 /**
@@ -11,29 +12,29 @@ import chisel3.util._
   */
 
 // ========== AR Channel (Read Address) ==========
-class AXILiteAR extends Bundle {
-  val addr = UInt(Config.ADDR_WIDTH.W)  // 读地址
+class AXILiteAR(implicit val cfg: CoreConfig) extends Bundle {
+  val addr = UInt(cfg.addrBits.W)  // 读地址
 }
 
 // ========== R Channel (Read Data) ==========
-class AXILiteR extends Bundle {
-  val data = UInt(Config.XLEN.W)        // 读数据
+class AXILiteR(implicit val cfg: CoreConfig) extends Bundle {
+  val data = UInt(cfg.dataBits.W)        // 读数据
   val resp = UInt(2.W)                  // 响应: 0=OK, 1=EXOKAY, 2=SLVERR, 3=DECERR
 }
 
 // ========== AW Channel (Write Address) ==========
-class AXILiteAW extends Bundle {
-  val addr = UInt(Config.ADDR_WIDTH.W)  // 写地址
+class AXILiteAW(implicit val cfg: CoreConfig) extends Bundle {
+  val addr = UInt(cfg.addrBits.W)  // 写地址
 }
 
 // ========== W Channel (Write Data) ==========
-class AXILiteW extends Bundle {
-  val data = UInt(Config.XLEN.W)        // 写数据
+class AXILiteW(implicit val cfg: CoreConfig) extends Bundle {
+  val data = UInt(cfg.dataBits.W)        // 写数据
   val strb = UInt(4.W)                  // 字节写使能掩码 (每位对应一个字节)
 }
 
 // ========== B Channel (Write Response) ==========
-class AXILiteB extends Bundle {
+class AXILiteB(implicit val cfg: CoreConfig) extends Bundle {
   val resp = UInt(2.W)                  // 响应: 0=OK, 1=EXOKAY, 2=SLVERR, 3=DECERR
 }
 
@@ -44,7 +45,7 @@ class AXILiteB extends Bundle {
   * - ar/aw/w: Master 发送地址和数据到 Slave (Decoupled)
   * - r/b: Master 接收来自 Slave 的响应 (Flipped Decoupled)
   */
-class AXILiteMasterIO extends Bundle {
+class AXILiteMasterIO(implicit val cfg: CoreConfig) extends Bundle {
   val ar = Decoupled(new AXILiteAR)           // 读地址通道 (Master → Slave)
   val r  = Flipped(Decoupled(new AXILiteR))   // 读数据通道 (Slave → Master)
   val aw = Decoupled(new AXILiteAW)           // 写地址通道 (Master → Slave)
@@ -59,7 +60,7 @@ class AXILiteMasterIO extends Bundle {
   * - ar/aw/w: Slave 接收来自 Master 的地址和数据 (Flipped Decoupled)
   * - r/b: Slave 发送响应到 Master (Decoupled)
   */
-class AXILiteSlaveIO extends Bundle {
+class AXILiteSlaveIO(implicit val cfg: CoreConfig) extends Bundle {
   val ar = Flipped(Decoupled(new AXILiteAR))  // 读地址通道 (Master → Slave)
   val r  = Decoupled(new AXILiteR)            // 读数据通道 (Slave → Master)
   val aw = Flipped(Decoupled(new AXILiteAW))  // 写地址通道 (Master → Slave)

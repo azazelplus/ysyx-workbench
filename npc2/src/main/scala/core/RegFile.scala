@@ -2,31 +2,32 @@
 package azazerv
 
 import chisel3._
+import _root_.core.CoreConfig
 import chisel3.util._
 
 /**
   * 32 个通用寄存器GPR
   * x0 恒为 0
   */
-class GPRFile extends Module {
+class GPRFile(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {
     // 两个读端口 (rs1, rs2)
-    val rs1_addr = Input(UInt(Config.REG_ADDR_W.W))
-    val rs2_addr = Input(UInt(Config.REG_ADDR_W.W))
-    val rs1_data = Output(UInt(Config.XLEN.W))
-    val rs2_data = Output(UInt(Config.XLEN.W))
+    val rs1_addr = Input(UInt(cfg.regAddrBits.W))
+    val rs2_addr = Input(UInt(cfg.regAddrBits.W))
+    val rs1_data = Output(UInt(cfg.dataBits.W))
+    val rs2_data = Output(UInt(cfg.dataBits.W))
     
     // 一个写端口 (rd)
-    val rd_addr  = Input(UInt(Config.REG_ADDR_W.W))
-    val rd_data  = Input(UInt(Config.XLEN.W))
+    val rd_addr  = Input(UInt(cfg.regAddrBits.W))
+    val rd_data  = Input(UInt(cfg.dataBits.W))
     val rd_wen   = Input(Bool())
 
     // 同步输出端口: 将 32 个 GPR 值通过 DPI-C 导出给 C++ (SDB/DiffTest)
-    val gpr_sync = Output(Vec(32, UInt(Config.XLEN.W)))
+    val gpr_sync = Output(Vec(32, UInt(cfg.dataBits.W)))
   })
 
   // 32 个 GPR 寄存器例化.
-  val regs = RegInit(VecInit(Seq.fill(32)(0.U(Config.XLEN.W))))
+  val regs = RegInit(VecInit(Seq.fill(32)(0.U(cfg.dataBits.W))))
 
   // 连接到读接口 (x0 恒为 0)
   io.rs1_data := Mux(io.rs1_addr === 0.U, 0.U, regs(io.rs1_addr))
@@ -45,7 +46,7 @@ class GPRFile extends Module {
   * CSR寄存器
   * CSRFile 持续输出 mtvec 和 mepc 的值, 供 EXU 作为跳转地址使用
   */
-class CSRFile extends Module {
+class CSRFile(implicit val cfg: CoreConfig) extends Module {
 
   // 寄存器IO接口
   val io = IO(new Bundle{
@@ -152,7 +153,7 @@ class CSRFile extends Module {
 /**
   * CSR 同步数据 Bundle (用于 DPI-C 接口)
   */
-class CSRSyncBundle extends Bundle {
+class CSRSyncBundle(implicit val cfg: CoreConfig) extends Bundle {
   val mstatus   = UInt(32.W)
   val mtvec     = UInt(32.W)
   val mepc      = UInt(32.W)
