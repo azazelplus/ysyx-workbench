@@ -46,14 +46,20 @@ AM_SRCS := riscv/npc/start.S \
            platform/dummy/vme.c \
            platform/dummy/mpe.c
 
+# 编译和链接设置
+# `-fdata-sections`/`-ffunction-sections`: 每个函数/全局或静态变量单独放一个section
 CFLAGS    += -fdata-sections -ffunction-sections
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
+# `--defsym`定义符号. 这里定义: `_pmem_start`和` _entry_offset`共同决定链接地址.
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
+# `--gc-sections`: 链接时丢弃未使用的section.
 LDFLAGS   += --gc-sections -e _start
+
 
 # 指向 npc2 目录
 NPC2_HOME = $(AM_HOME)/../npc2
 
+# 
 MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)

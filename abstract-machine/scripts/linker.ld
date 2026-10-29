@@ -3,7 +3,7 @@
 /* Set program entry point */
 ENTRY(_start)
 
-/* Define program segments for ELF output */
+/* Define program segments for ELF output. PHDRS: program headers*/
 PHDRS { 
   text PT_LOAD;    /* Loadable text segment (code) */
   data PT_LOAD;    /* Loadable data segment */

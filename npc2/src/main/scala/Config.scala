@@ -22,7 +22,7 @@ case class CoreConfig(
 
     // 功能开关
     hasRVM: Boolean = true,                           // 是否启用 RV32M 乘除法扩展
-    enablePerfCnt: Boolean = false,                   // 预留：性能计数器开关；当前未接入
+    enablePerfCnt: Boolean = false,                   // 预留：性能计数器开关
     fastMul: Boolean = true                           // 是否使用快速乘法路径
 ) {
   // 断言检查. 目前仅支持RV32.
