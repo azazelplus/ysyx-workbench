@@ -1,17 +1,5 @@
 #***************************************************************************************
-# Copyright (c) 2014-2022 Zihao Yu, Nanjing University
-#
-# NEMU is licensed under Mulan PSL v2.
-# You can use this software according to the terms and conditions of the Mulan PSL v2.
-# You may obtain a copy of Mulan PSL v2 at:
-#          http://license.coscl.org.cn/MulanPSL2
-#
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-# EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-# MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-#
-# See the Mulan PSL v2 for more details.
-# 
+# nemu编译文件清单. 需要参与编译的.c, 
 #**************************************************************************************/
 
 # 将nemu-main.c加入到SRCS-y中. 这是显然的, nemu-main.c肯定要参与编译.

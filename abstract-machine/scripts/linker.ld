@@ -51,3 +51,9 @@ SECTIONS {
   _end = .;
   _heap_start = ALIGN(0x1000);      /* Heap starts here, aligned to 4KB */
 }
+
+/* 平台提供期望入口或内存终点时，检查最终布局。未提供时跳过对应检查。 */
+ASSERT(DEFINED(_expected_entry) ? _start == _expected_entry : 1,
+       "Program entry does not match platform entry address")
+ASSERT(DEFINED(_pmem_end) ? _heap_start <= _pmem_end : 1,
+       "Program and stack exceed physical memory")

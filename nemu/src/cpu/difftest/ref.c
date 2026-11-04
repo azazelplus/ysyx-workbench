@@ -2,12 +2,12 @@
 * ============================== nemu 用作 REF 端 DiffTest 实现 ==============================
 * 
 * 本文件实现 nemu 作为 REF (Reference Implementation) 时暴露给 DUT 的 5 个标准 API。
-* 当 nemu 被编译为动态库 .so 时，这些函数会被 DUT (如 npc2) 通过 dlsym(动态链接器) 加载和调用。
+* 当 nemu 被编译为动态库 .so 时，这些函数会被 DUT (如 npc) 通过 dlsym(动态链接器) 加载和调用。
 * 
 * 【编译方式】
 * 在 menuconfig 中选择 "Build target" -> "Shared object (used as REF for differential testing)"
 * 即设置 CONFIG_TARGET_SHARE=y，然后编译生成 riscv32-nemu-interpreter-so.
-* 然后在npc2端打开difftest宏, 然后make ARCH=riscv32-npc2 运行.
+* 然后在npc端打开difftest宏, 然后make ARCH=riscv32-npc 运行.
 * 
 * 【API 接口说明】
 * 1. difftest_init(port)       - 初始化 REF 环境（内存、ISA 状态）
@@ -52,7 +52,7 @@ __EXPORT void difftest_init(int port) {
 /***************************************************************************************
 * difftest_memcpy - 在 DUT 和 REF 的内存之间拷贝数据
 * 
-* @param addr:      目标/源物理地址 (客户机(即测试程序运行的机器, 即npc2)地址空间)
+* @param addr:      目标/源物理地址 (客户机(即测试程序运行的机器, 即npc)地址空间)
 * @param buf:       主机侧缓冲区. 在wsl2所拥有的内存空间开辟的数组.
 * @param n:         要拷贝的字节数
 * @param direction: DIFFTEST_TO_REF = DUT → REF (buf 写入 REF 内存)
@@ -138,8 +138,8 @@ __EXPORT void difftest_exec(uint64_t n) {
 * @param NO: 中断/异常号
 * 
 * 【实现说明】
-* 目前 npc2 不支持中断，此函数暂时不实现
-* 当 npc2 添加中断支持时，需要调用 nemu 的中断处理逻辑
+* 目前 npc 不支持中断，此函数暂时不实现
+* 当 npc 添加中断支持时，需要调用 nemu 的中断处理逻辑
 * 
 * 【调用时机】
 * - 当 DUT 触发中断时，需要同步让 REF 也触发相同的中断

@@ -1,5 +1,5 @@
-# 这是am内核,  Makefile. 它调用~/abstract-machine主Makefile.
-
+# 这是am内核Makefile. 它调用~/abstract-machine主Makefile.
+# 
 NAME     := am
 SRCS      = $(addprefix src/, $(AM_SRCS))
 INC_PATH += $(AM_HOME)/am/src

@@ -68,16 +68,16 @@ am-kernels
 
 ## makefile编译阶段
 
-运行cpu-tests/下的`make ARCH=minirv-npc2 ALL=dummy run`后:
+运行cpu-tests/下的`make ARCH=minirv-npc ALL=dummy run`后:
 
 * 生成临时mk文件`Makefile.dummy`并运行, 它传入参数SRC和ARCH, 调用am的主Makefile, 即`abstract-machine/Makefile`.
 
 * 主Makefile 根据 ARCH 变量引入对应的架构 mk 文件.
-  * 第一步：`-include $(AM_HOME)/scripts/$(ARCH).mk`（即 `scripts/minirv-npc2.mk`）
-  * 第二步：`minirv-npc2.mk` 再内部 include ISA 和 Platform 的 mk 文件：
+  * 第一步：`-include $(AM_HOME)/scripts/$(ARCH).mk`（即 `scripts/minirv-npc.mk`）
+  * 第二步：`minirv-npc.mk` 再内部 include ISA 和 Platform 的 mk 文件：
     * `include $(AM_HOME)/scripts/isa/riscv.mk`
-    * `include $(AM_HOME)/scripts/platform/npc2.mk`
-  * 第三步：主 Makefile 继续执行编译规则，生成 IMAGE 文件（ELF 和 BIN）. 最终生成物为`dummy-minirv-npc2.bin`.
+    * `include $(AM_HOME)/scripts/platform/npc.mk`
+  * 第三步：主 Makefile 继续执行编译规则，生成 IMAGE 文件（ELF 和 BIN）. 最终生成物为`dummy-minirv-npc.bin`.
     * 参与编译的文件:
       * am/src/riscv/npc 下的 am 接口实现源码, 包括:
         * `start.S`
@@ -88,33 +88,33 @@ am-kernels
       * klib 库源码
       * cpu-tests/tests 下的应用程序源码（如 `dummy.c`）
 
-* 当主 Makefile 遇到 `run` 目标时，它会调用 `platform/npc2.mk` 中定义的 `run` 规则：
-  * `platform/npc2.mk` 定义了 `run: insert-arg` 规则，它执行： `$(MAKE) -C $(NPC2_HOME) run IMG=$(IMAGE).bin`
-  * 这个命令进入 `npc2` 项目，调用 `npc2/Makefile` 的 `run` 规则。
-  * `npc2/Makefile` 的 `run` 规则是：`include sim/sim.mk`，因此最终在 `npc2/sim/sim.mk` 中执行仿真。
+* 当主 Makefile 遇到 `run` 目标时，它会调用 `platform/npc.mk` 中定义的 `run` 规则：
+  * `platform/npc.mk` 定义了 `run: insert-arg` 规则，它执行： `$(MAKE) -C $(NPC_HOME) run IMG=$(IMAGE).bin`
+  * 这个命令进入 `npc` 项目，调用 `npc/Makefile` 的 `run` 规则。
+  * `npc/Makefile` 的 `run` 规则是：`include sim/sim.mk`，因此最终在 `npc/sim/sim.mk` 中执行仿真。
 
 
 * 于是运行sim.mk, 且传入参数IMG, MAX_CYCLES(可选):
   * 设定仿真周期MAX_CYCLES ?= 100000
   * 执行mill命令来编译scala源码以生成verilog.
-  * 编译仿真可执行程序`/npc2/build/obj_dir/VMiniRV`
-    * 参与编译`VMiniRV`的源码: 
+  * 编译仿真可执行程序`/npc/build/obj_dir/VAzazeRV`
+    * 参与编译`VAzazeRV`的源码: 
       * `main.cpp`
-      * `npc2/src/main/scala/*.scala`
-  * 运行可执行程序`VMiniRV`, 传入参数: IMG, MAX_CYCLES(可选).  仿真开始.
+      * `npc/src/main/scala/*.scala`
+  * 运行可执行程序`VAzazeRV`, 传入参数: IMG, MAX_CYCLES(可选).  仿真开始.
 
-##　仿真程序`VMINIRV`运行阶段
+##　仿真程序`VAzazeRV`运行阶段
 
-* 上电：`VMiniRV`(Verilator 仿真执行文件)在宿主机(wsl)上启动时:
-  * 宿主机 (wsl) 的 `main.cpp` 打开并读取 `dummy-minirv-npc2.bin` 文件: 
+* 上电：`VAzazeRV`(Verilator 仿真执行文件)在宿主机(wsl)上启动时:
+  * 宿主机 (wsl) 的 `main.cpp` 打开并读取 `dummy-minirv-npc.bin` 文件: 
   ```cpp
   long prog_size = load_program(argv[1]);
   ```
-  * 将`dummy-minirv-npc2.bin`二进制内容加载到 **NPC 虚拟硬件的物理内存** 地址 `0x80000000`（这个内存由 PMEM C++ 模块使用全局数组 `pmem[]` 模拟）
+  * 将`dummy-minirv-npc.bin`二进制内容加载到 **NPC 虚拟硬件的物理内存** 地址 `0x80000000`（这个内存由 PMEM C++ 模块使用全局数组 `pmem[]` 模拟）
   * 将 NPC 虚拟 PC 寄存器设置为 `0x80000000`
   * 启动仿真循环：逐个时钟周期调用 Verilator 生成的 `eval()` 函数，驱动 Scala/Chisel 生成的硬件电路运行 RISC-V 指令
 
-### 二进制程序`dummy-minirv-npc2.bin`在npc2上运行阶段
+### 二进制程序`dummy-minirv-npc.bin`在npc上运行阶段
   * 启动：
     * `0x80000000`: `start.S` 开始执行。
     * 设置完堆栈后，`call _trm_init`。
@@ -141,7 +141,7 @@ void halt(int code) {
 ```
 
   * ebreak指令自杀:
-    * npc2 收到 ebreak 指令. `EBREAKDetect` 模块检测到当前指令是ebreak后, 调用 DPI-C 接口 `ebreak_handler()`。
+    * npc 收到 ebreak 指令. `EBREAKDetect` 模块检测到当前指令是ebreak后, 调用 DPI-C 接口 `ebreak_handler()`。
 
   * 仿真器介入 (`main.cpp` 中的 `ebreak_handler()`): 读取 `cpu_regs[10]` (即 a0 寄存器) 的值作为程序退出码, 执行exit(a0)退出仿真.
 ```cpp
@@ -165,9 +165,9 @@ void ebreak_handler() {
 
 | 层级 | 内容 | 所有者 |
 |------|------|--------|
-| **宿主机 (Host)** | `VMiniRV`（C++ 仿真器）、`main.cpp`、PMEM 数组 | Linux PC |
+| **宿主机 (Host)** | `VAzazeRV`（C++ 仿真器）、`main.cpp`、PMEM 数组 | Linux PC |
 | **虚拟硬件 (Guest)** | NPC CPU 寄存器、PC、虚拟内存（由 PMEM[] 数组模拟） | Verilator 模拟 |
-| **虚拟内存内容** | `dummy-minirv-npc2.bin`（RISC-V 机器码） | 加载到虚拟地址 0x80000000 |
+| **虚拟内存内容** | `dummy-minirv-npc.bin`（RISC-V 机器码） | 加载到虚拟地址 0x80000000 |
 
 PMEM（Physical Memory）是 C++ 中的一个全局数组，它代表"NPC 虚拟硬件看到的内存"。当 NPC 执行 `lw` 指令时，实际上是在访问这个 C++ 数组；当执行 `sw` 指令时，实际上是在修改这个数组的内容。
 
@@ -192,7 +192,7 @@ AM 采用**多层继承/覆盖设计**，原因是：
 ### 2. 多平台支持（同一 ISA，不同平台）
 同一 ISA 可以在不同的**模拟器或硬件平台**上运行，需要不同的初始化和 I/O 实现：
 - `src/riscv/nemu/` - RISC-V 在 NEMU 上的实现
-- `src/riscv/npc2/` - RISC-V 在 NPC2 上的实现（您的项目）
+- `src/riscv/npc/` - RISC-V 在 NPC 上的实现（您的项目）
 - `src/riscv/spike/` - RISC-V 在 Spike 上的实现
 - `src/x86/qemu/` - x86 在 QEMU 上的实现
 - `src/x86/nemu/` - x86 在 NEMU 上的实现
@@ -203,12 +203,12 @@ AM 采用**多层继承/覆盖设计**，原因是：
 
 ```makefile
 # 当你执行：
-make ARCH=minirv-npc2 ALL=dummy
+make ARCH=minirv-npc ALL=dummy
 
 # AM 的 Makefile 会：
-# 1. 通过 ARCH 变量 (minirv-npc2) 引入 scripts/minirv-npc2.mk
-# 2. minirv-npc2.mk 内部指定 ISA (riscv) 和 Platform (npc2)
-# 3. 编译时只选择 src/riscv/npc2/ 下的文件，不选择其他的
+# 1. 通过 ARCH 变量 (minirv-npc) 引入 scripts/minirv-npc.mk
+# 2. minirv-npc.mk 内部指定 ISA (riscv) 和 Platform (npc)
+# 3. 编译时只选择 src/riscv/npc/ 下的文件，不选择其他的
 ```
 
 ### 4. 文件继承关系示例
@@ -217,7 +217,7 @@ make ARCH=minirv-npc2 ALL=dummy
 
 | 文件位置 | 内容 | 使用场景 |
 |---------|------|--------|
-| `src/riscv/npc2/trm.c` | `halt()` 实现：`mov a0, code; ebreak` | NPC2 平台 |
+| `src/riscv/npc/trm.c` | `halt()` 实现：`mov a0, code; ebreak` | NPC 平台 |
 | `src/riscv/nemu/trm.c` | `halt()` 实现：`mov a0, code; ebreak` | NEMU 平台 |
 | `src/x86/nemu/trm.c` | `halt()` 实现：`mov eax, code; hlt` | x86 NEMU 平台 |
 | `src/native/trm.c` | `halt()` 实现：直接调用 Linux 的 `exit(code)` | 本地 Linux |
@@ -240,7 +240,7 @@ src/
 │   │   ├── trm.c             # halt() via ebreak
 │   │   ├── cte.c
 │   │   └── vme.c
-│   └── npc2/                 # NPC2 平台特定
+│   └── npc/                 # NPC 平台特定
 │       ├── trm.c             # halt() via ebreak
 │       ├── cte.c
 │       └── vme.c
@@ -265,7 +265,7 @@ src/
 
 ```
 1. src/$(ARCH_ISA)/$(ARCH_PLATFORM)/trm.c  # 最优先 (平台特定)
-   例如：src/riscv/npc2/trm.c
+   例如：src/riscv/npc/trm.c
 
 2. src/$(ARCH_ISA)/trm.c                   # 其次 (ISA 通用)
    例如：src/riscv/trm.c (如果存在的话)
@@ -306,13 +306,13 @@ abstract-machine
 │       │       │   └── timer.c
 │       │       ├── mpe.c               # MPE, 当前为空
 │       │       └── trm.c               
-│       ├── riscv                       # `/src/riscv`  存放和riscv相关的am接口实现. 对于npc2(我自己写的minirv), 由于它只能跑riscv32, 所以关于npc2的完整am接口实现都放在`/src/riscv/npc2`.
+│       ├── riscv                       # `/src/riscv`  存放和riscv相关的am接口实现. 对于npc(我自己写的minirv), 由于它只能跑riscv32, 所以关于npc的完整am接口实现都放在`/src/riscv/npc`.
 │       │   ├── nemu                    # riscv32(64)相关的实现
 │       │   │   ├── cte.c               # CTE
 │       │   │   ├── start.S             # 程序入口
 │       │   │   ├── trap.S
 │       │   │   └── vme.c               # VME
-│       │   └── npc2                     # npc2的完整am接口实现.
+│       │   └── npc                     # npc的完整am接口实现.
 │       │       ├── cte.c               # CTE
 │       │       ├── start.S             # 程序入口
 │       │       ├── trap.S

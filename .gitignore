@@ -5,8 +5,8 @@
 # **    # 全局通配符. 匹配一切.
 # ?     # 匹配任意单个字符
 # /     # 路径锚定. `/`被允许出现在gitignore模式的开头, 中间, 结尾.
-# 如果模式开头或中间（或两者兼有）存在分隔符(如`/npc2`)，则该模式相对于特定 .gitignore 文件所在的目录级别。否则，该模式也可能匹配 .gitignore 文件级别以下的任何级别。
-# 如果模式末尾有分隔符(如`npc2/`)，则该模式将仅匹配目录；否则，该模式可以同时匹配文件和目录。
+# 如果模式开头或中间（或两者兼有）存在分隔符(如`/npc`)，则该模式相对于特定 .gitignore 文件所在的目录级别。否则，该模式也可能匹配 .gitignore 文件级别以下的任何级别。
+# 如果模式末尾有分隔符(如`npc/`)，则该模式将仅匹配目录；否则，该模式可以同时匹配文件和目录。
 
 
 # !     # 反忽略. 如果父目录已经被忽略, 则无效.
@@ -35,8 +35,7 @@
 !/nanos-lite/
 !/navy-apps/
 !/npc/
-!/npc2/
-# VS Code workspace settings for the npc2 Metals project root
+# VS Code workspace settings for the npc Metals project root
 !/.vscode/
 !/.vscode/settings.json
 !/test/

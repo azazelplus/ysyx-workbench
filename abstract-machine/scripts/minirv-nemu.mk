@@ -15,8 +15,8 @@ AM_SRCS += riscv/nemu/start.S \
            riscv/nemu/trap.S \
            riscv/nemu/vme.c
 
-AM_SRCS += riscv/npc/libgcc/div.S \
-           riscv/npc/libgcc/muldi3.S \
-           riscv/npc/libgcc/multi3.c \
-           riscv/npc/libgcc/ashldi3.c \
-           riscv/npc/libgcc/unused.c
+AM_SRCS += riscv/libgcc/div.S \
+           riscv/libgcc/muldi3.S \
+           riscv/libgcc/multi3.c \
+           riscv/libgcc/ashldi3.c \
+           riscv/libgcc/unused.c

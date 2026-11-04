@@ -1,4 +1,5 @@
-# abstract-machine的主目录makefile.  Makefile for AbstractMachine Kernels and Libraries. 用来被下几情况调用:
+# abstract-machine的主目录makefile. 提供通用的源码编译和库归. 职责是把一个项目的源文件编译成.o目标文件, 并与 AM、klib 静态库链接, 最终生成 ELF 文件(dummy-riscv32-nemu.elf). 架构专属mk会进一步制作为裸二进制(dummy-riscv32-nemu.bin).
+# 用来被下几情况调用:
 # 	AM内核的Makefile  $(AM_HOME)/am/Makefile 内include它, 来构建am内核.
 # 	kilb库的Makefile($(AM_HOME)/klib/Makefile) include它, 来构建klib库.
 # 	cpu-tests的Makefile include它, 来构建测试程序并启动nemu运行.
@@ -6,7 +7,7 @@
 
 
 ##########################################################
-# 运行本makefile需要提供参数:  
+# 接收参数: 
 
 # MAKECMDGOALS
 # 你在命令行上指定的目标. 这个是所有makefile普遍的没什么好说的. 
@@ -35,10 +36,7 @@
 
 
 ##########################################################
-# 本Makefile的run:
-# 由具体架构的.mk提供(它们被include在本Makefile中). 本Makefile的公共部分主要编译出客户程序image, 而具体架构的
-
-
+# 本Makefile的run规则由具体架构的.mk提供(它们被include在本Makefile中). 本Makefile的公共部分主要编译出客户程序image
 ##########################################################
 
 
@@ -103,22 +101,20 @@ ifeq ($(MAKECMDGOALS),)
   .DEFAULT_GOAL = image
 endif
 
-### Override checks when `make clean/clean-all/html`
+### 如果当前目标是 clean/clean-all/html, 则跳过环境检查.
 # findstring <find>,<in>用法: 如果 <find> 是 <in> 的子串则返回 <find>，否则返回空字符串. 
-# 如果当前目标是 clean/clean-all/html, 则跳过下面的检查.
-ifeq ($(findstring $(MAKECMDGOALS),clean|clean-all|html),)
+ifeq ($(filter $(MAKECMDGOALS),clean clean-all html),)
 
 ### Print build info message
-# info打印信息到stdout.
-# 其中NAME在am-kernels/am/Makefile中定义为`NAME :=am`
+# info打印信息到stdout. 其中NAME在am-kernels/am/Makefile中定义为`NAME :=am`
 $(info # Building $(NAME)-$(MAKECMDGOALS) [$(ARCH)])
 
-### Check: environment variable `$AM_HOME` looks sane
+### 检查 AM_HOME 路径合法
 ifeq ($(wildcard $(AM_HOME)/am/include/am.h),)
   $(error $$AM_HOME must be an AbstractMachine repo)
 endif
 
-### Check: environment variable `$ARCH` must be in the supported list. 如果没有指定ARCH会在此报错
+### 检查 ARCH 指定合法
 ARCHS = $(basename $(notdir $(shell ls $(AM_HOME)/scripts/*.mk)))
 ifeq ($(filter $(ARCHS), $(ARCH)), )
   $(error Expected $$ARCH in {$(ARCHS)}, Got "$(ARCH)")
@@ -129,14 +125,15 @@ ARCH_SPLIT = $(subst -, ,$(ARCH))
 ISA        = $(word 1,$(ARCH_SPLIT))
 PLATFORM   = $(word 2,$(ARCH_SPLIT))
 
-### Check if there is something to build
+### 检查有没有提供源文件SRCS.
 # flavor函数判断变量类型: undefined(没定义), recurisive(用=定义), simple(用:=定义)
 ifeq ($(flavor SRCS), undefined)
   $(error Variable SRCS not defined!! Nothing to build...)
 endif
 
-### Checks end here
+### 检查结束
 endif
+
 
 
 ## 2. 创建输出目录, 里面放所有输出产物. 还有设置输出变量名字
@@ -163,7 +160,7 @@ OBJS      = $(addprefix $(DST_DIR)/, $(addsuffix .o, $(basename $(SRCS))))
 # LIBS: 程序依赖的库. 这一句当前将LIBS变量用sort去重, 然后强制加上am和klib. 如果在运行cpu-tests下的测试, 它们都不需要额外添加库. 如果是am/kernel下的程序, 它们会传入额外需要的库到LIBS.
 LIBS     := $(sort $(LIBS) am klib) # lazy evaluation ("=") causes infinite recursions
 
-# LINKAGE: 这是一个文件路径列表，保存了所有需要交给链接器(Linked, ld)去合并的二进制文件路径. 此处先包括所有OBJ, 后面会添加更多库文件路径.
+# LINKAGE: 最终交给链接器的输入. 这是一个文件路径列表，保存了所有需要交给链接器(Linked, ld)去合并的二进制文件路径. 此处先包括所有OBJ, 后面会添加更多库文件路径.
 LINKAGE   = $(OBJS)  # library archives are added by LIB_TEMPLATE below
 
 
@@ -210,8 +207,7 @@ LDFLAGS  += -z noexecstack $(addprefix -T, $(LDSCRIPTS))
 
 
 
-## 5. 编译链接工作. Compilation Rules 编译OBJ, 链接image的编译器命令.
-
+## 5. 核心部分... 交付文件. 编译链接规则.  编译OBJ, 链接image的编译器命令.
 ### Rule (compile): a single `.c` -> `.o` (gcc)
 $(DST_DIR)/%.o: %.c
 	@mkdir -p $(dir $@) && echo + CC $<
@@ -232,13 +228,14 @@ $(DST_DIR)/%.o: %.S
 	@mkdir -p $(dir $@) && echo + AS $<
 	@$(AS) $(ASFLAGS) -c -o $@ $(realpath $<)
 
+# 根据目标决定是否归档.
 ifeq ($(MAKECMDGOALS),archive)
 ### Rule (archive): objects (`*.o`) -> `ARCHIVE.a` (ar)
 $(ARCHIVE): $(OBJS)
 	@echo + AR "->" $(shell realpath $@ --relative-to .)
 	@$(AR) rcs $@ $^
 else
-# $(1): library name
+# 为每个依赖库生成一条构建规则, 把生成的库文件加入 LINKAGE
 define LIB_TEMPLATE =
 $$(AM_HOME)/$(1)/build/$(1)-$$(ARCH).a: force
 	@$$(MAKE) -s -C $$(AM_HOME)/$(1) archive

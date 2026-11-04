@@ -2,7 +2,7 @@
     "files.watcherExclude": {
         "**/target/**": true
     },
-    "metals.customProjectRoot": "npc2/",
+    "metals.customProjectRoot": "npc/",
     "metals.defaultBspToBuildTool": true,
     "metals.targetBuildTool": "sbt",
     "metals.autoImportBuilds": "initial"
