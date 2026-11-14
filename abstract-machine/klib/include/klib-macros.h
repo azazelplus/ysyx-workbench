@@ -27,11 +27,13 @@ Area heap = (Area){
 #define putstr(s) \
   ({ for (const char *p = s; *p; p++) putch(*p); })
 
+// io_read(设备操作名)
 #define io_read(reg) \
   ({ reg##_T __io_param; \
     ioe_read(reg, &__io_param); \
     __io_param; })
 
+// io_write(设备操作名, 操作参数)
 #define io_write(reg, ...) \
   ({ reg##_T __io_param = (reg##_T) { __VA_ARGS__ }; \
     ioe_write(reg, &__io_param); })

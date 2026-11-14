@@ -34,6 +34,7 @@ int printf(const char *fmt, ...) {
 // va_list string print formatted, 可变参数列表 格式化 输出到字符串 函数. 返回值为写入的字符数(不包括结尾的'\0').
 // 虽然不是glibc级别的vsprintf, 但是对于裸机环境我觉得已经很牛逼了.、
 // out: 输出缓冲区; fmt: 格式字符串; ap: 可变参数列表
+// 逐字符扫描fmt, 普通字符原样拷贝, 解析%格式说明符(从ap取参数消费), 格式化后写入out并补`\0`
 int vsprintf(char *out, const char *fmt, va_list ap) {
   char *p = out;  //输出指针, 指向out开头准备写.
   char tmp[256]; // 用于暂存转换后的数字字符串，足够大以容纳长数字
@@ -185,12 +186,9 @@ int vsprintf(char *out, const char *fmt, va_list ap) {
         break;
       }
 
-      // 简单支持 %f (不使用 double, 避免浮点库依赖)
-      // 若必须要 double，请确保编译器支持软浮点
-      // 这里为了演示，我们实现一个非常基础的定点模拟或者是简单的 float 打印
+      // %f 需要FPU
       case 'f': {
-        // 注意：va_arg(ap, double) 获取 double。如果没有 FPU，这可能会生成无法链接的 FPU 指令或软浮点调用。
-        // 这里尝试实现一个简单的版本。
+        // FPU待施工
       #if SUPPORT_FPU
         double val = va_arg(ap, double);
         if (val < 0) {

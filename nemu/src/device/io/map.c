@@ -1,14 +1,8 @@
 /***************************************************************************************
- * MMIO 内存空间管理
- * 
- * NEMU 中所有外设（串口、计时器、GPU 等）的寄存器都通过 MMIO（Memory-Mapped I/O）
- * 方式访问。CPU 通过读写指定的物理地址来与外设通信。
- * 
- * 这个模块管理一个统一的 IO 空间，为不同的外设分配虚拟内存区域：
+ * MMIO 内存空间管理.
  * - io_space: MMIO 空间的基址（malloc 分配的连续内存）
  * - p_space: 指向当前未被占用的位置（用于分配新外设的空间）
- * 
- * 例如：
+ *
  *   serial:  [0xa00003f8, 0xa00003ff] -> io_space 的某个位置
  *   rtc:     [0xa0000048, 0xa000004f] -> io_space 的另一个位置
  *   gpu:     [0xa0000100, 0xa0000107] -> io_space 的再另一个位置
@@ -30,10 +24,10 @@
 #endif
 
 /***************************************************************************************
- * io_space p_space两个全局指针. 分别记录"总基址"和"当前分配位置". 
+ * io_space p_space两个全局指针. 分别记录 总基址 和 当前分配位置. 
  * 
  * 【io_space：IO 空间的总基址】
- * - 值：malloc 返回的 2MB 内存的首地址
+ * - return: linux给运行中的nemu进程malloc 分配 2MB 内存的首地址
  * - 职责：记录整个 IO 空间在内存中的起始位置，永远不变
  * - 初始化时机：init_map() 时设置一次，之后不再改变
  * 
@@ -47,9 +41,7 @@
  *   2. 为新外设分配连续内存
  *   3. 实现简单的内存池（无需 free，只有单向分配）
  *
- * - io_space 保持不变，便于计算相对位置
- * - p_space 动态变化，便于跟踪分配进度
- * - 配合使用可以：
+ * - 配合使用.
  *   * 检查是否超过限制：assert(p_space - io_space < IO_SPACE_MAX)
  *   * 实现简单快速的线性分配算法
  *   * 避免碎片化（因为总是从 p_space 继续分配）
@@ -61,8 +53,8 @@ static uint8_t *p_space = NULL;   //IO 空间的当前分配指针（指向下�
 
 
 /***************************************************************************************
- * new_space - 分配新的堆空间. 其实干的事情就是移动p_space, 堆全局指针.
- * 
+ * new_space - 分配新的堆空间. 其实干的事情就是移动p_space.
+ * consumer: 每个设备的init函数. init_vga, init_timer, init_serial, init_keyboard
  * 【分配过程示例】
  * 初始状态：
  *   io_space = 0x55000000  (malloc 分配的基址)
@@ -71,7 +63,7 @@ static uint8_t *p_space = NULL;   //IO 空间的当前分配指针（指向下�
  * 
  * new_space(8) 调用 1：
  *   p = p_space = 0x55000000
- *   size → 4096
+ *   size → 4096(因为对齐到 PAGE_SIZE=4096)
  *   p_space = 0x55000000 + 4096 = 0x55001000
  *   return 0x55000000  ← serial 设备的寄存器在这里
  * 
@@ -93,7 +85,7 @@ static uint8_t *p_space = NULL;   //IO 空间的当前分配指针（指向下�
  *   已使用：p_space - io_space = 0x3000 = 12KB
  * 【参数说明】
  * @param size: 请求分配的大小（字节）
- *              实际分配会对齐到 PAGE_SIZE（通常 4096）
+ *              实际分配会对齐到 PAGE_SIZE=4096
  * 【返回值】
  * 返回分配内存的起始地址（uint8_t *）
  * 【关键公式】
@@ -112,16 +104,8 @@ uint8_t* new_space(int size) {
 }
 
 
-/***************************************************************************************
- * check_bound - 检查某个设备 map 能否访问某个内存 addr.
- * 【执行流程】
- * 1. 如果 map 为 NULL（没有为该地址注册任何设备），报错
- * 2. 检查地址是否在 [map->low, map->high] 范围内
- * 3. 如果越界，报错并显示设备名称和允许范围
- * 【参数说明】
- * @param map:  设备的 IOMap 结构. 包含该设备注册的地址范围.
- * @param addr: 要访问的物理地址
- ***************************************************************************************/
+
+//check_bound - 检查某个设备 map 能否访问某个内存 addr.
 static void check_bound(IOMap *map, paddr_t addr) {
   //如果map==NULL, 传入不是注册设备, 直接报错.
   if (map == NULL) {
@@ -134,8 +118,8 @@ static void check_bound(IOMap *map, paddr_t addr) {
 }
 
 /***************************************************************************************
- * invoke_callback - 调用外设的 IO 处理函数, 其实就是包装了一下设备的IO回调函数.
- * 【参数说明】
+ * invoke_callback - 调用外设的 IO回调函数.
+ * consumer: map_read()和map_write()
  * @param c:        IO设备 的 回调函数指针（可以为 NULL）
  * @param offset:   相对于设备基址的偏移
  * @param len:      访问长度（1、2、4 或 8 字节）
@@ -147,7 +131,7 @@ static void check_bound(IOMap *map, paddr_t addr) {
  * - 让 CPU 读到最新的时间值
  ***************************************************************************************/
 static void invoke_callback(io_callback_t c, paddr_t offset, int len, bool is_write) {
-  if (c != NULL) { c(offset, len, is_write); }  //当回调函数不为 NULL 时, 调用它. 否则为空操作.
+  if (c != NULL) { c(offset, len, is_write); }  //若io有回调函数则调用.
 }
 
 
@@ -216,7 +200,7 @@ void map_write(paddr_t addr, int len, word_t data, IOMap *map) {
   assert(len >= 1 && len <= 8);
   check_bound(map, addr);
   paddr_t offset = addr - map->low;
-  // Device trace: 记录设备写操作
+  // Dtrace记录设备写操作
   IFDEF(CONFIG_DTRACE,
     if (DTRACE_COND) {
       log_write("[DTRACE] WRITE %s: addr=" FMT_PADDR ", offset=0x%08x, len=%d, data=" FMT_WORD "\n",

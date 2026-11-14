@@ -2,7 +2,7 @@ package core
 
 import chisel3._
 import chisel3.util._
-import azazerv.ALUFunction
+import azazerv.idu.ALUFunction
 
 /** MDU - RV32M 乘除法功能单元
   * 设计原则：

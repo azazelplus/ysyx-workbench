@@ -1,6 +1,5 @@
-#***************************************************************************************
 # nemu模拟器的主Makefile. 它最终编译出riscv32-nemu-interpreter可执行文件
-#**************************************************************************************/
+
 
 
 
@@ -87,7 +86,7 @@ include $(FILELIST_MK)
 
 # Filter out directories and files in blacklist to obtain the final set of source files
 
-# DIRS-BLACKLIST-y是不参与编译的目录集合.
+# DIRS-BLACKLIST-y, 不参与编译的目录集合.
 DIRS-BLACKLIST-y += $(DIRS-BLACKLIST)
 
 # 不参与编译的源文件集合.
@@ -122,6 +121,7 @@ LDFLAGS += $(CFLAGS_BUILD)
 # `config.mk`是 Kconfig 编译后生成的.
 include $(NEMU_HOME)/scripts/config.mk
 
+# CONFIG_TARGET_AM分支, 不使用.
 ifdef CONFIG_TARGET_AM
 include $(AM_HOME)/Makefile
 LINKAGE += $(ARCHIVES)

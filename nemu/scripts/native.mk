@@ -1,6 +1,4 @@
-#***************************************************************************************
-# 提供run规则, 运行NEMU可执行程序. 被build.mk include.
-#**************************************************************************************/
+# 提供run规则, 运行NEMU可执行程序. included by nemu/Makefile
 
 -include $(NEMU_HOME)/../Makefile
 include $(NEMU_HOME)/scripts/build.mk
@@ -17,7 +15,7 @@ $(BINARY):: compile_git
 override ARGS ?= --log=$(BUILD_DIR)/nemu-log.txt
 override ARGS += $(ARGS_DIFF)
 
-# Command to execute NEMU
+# NEMU_EXEC: nemu模拟器可执行程序的启动命令. run要执行的内容. 即 /build/riscv32-nemu-interpreter --log=/build/nemu-log.txt [ARGS_DIFF内容] [IMG文件]
 IMG ?=
 NEMU_EXEC := $(BINARY) $(ARGS) $(IMG)
 
@@ -28,7 +26,7 @@ run-env: $(BINARY) $(DIFF_REF_SO)
 run: run-env
 # 这个是和nemu本身无关的行为. git_commit是上一级ysyx的监视器.
 	$(call git_commit, "run NEMU")
-# 这是 make run 的总命令: /build/riscv32-nemu-interpreter --log=/build/nemu-log.txt [ARGS_DIFF内容] [IMG文件]
+# make run 的总命令
 	$(NEMU_EXEC)
 
 gdb: run-env

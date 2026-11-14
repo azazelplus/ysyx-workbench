@@ -5,12 +5,13 @@ import chisel3._
 import _root_.core.CoreConfig
 import chisel3.util._
 import azazerv._
+import bus.AXI4MasterBus
 
 
 /**
   * IFU - 取指单元
   *
-  * 根据 PC 通过 AXI-Lite AR/R 通道读取指令，并通过 Decoupled 接口
+  * 根据 PC 通过 AXI4 AR/R 通道读取指令，并通过 Decoupled 接口
   * 向下游传递 (pc, inst, inst_valid)。每次仅处理一笔在途取指请求。
   *
   * 状态机：
@@ -38,8 +39,8 @@ class IFU(implicit val cfg: CoreConfig) extends Module {
     val jump_en   = Input(Bool())                     // EXU->IFU, 是否跳转/分支成立
     val jump_addr = Input(UInt(cfg.addrBits.W))  // EXU->IFU, 跳转目标地址
 
-    // ========== IFU<->PMEM (取指接口, AXI-Lite) ==========
-    val axi = new AXILiteMasterIO         // 对MEM用AXI通信
+    // ========== IFU<->PMEM (取指接口, AXI4) ==========
+    val axi = new AXI4MasterBus(cfg.bus)         // 对MEM用AXI通信
   })
 
   // 实例化 PC 模块
@@ -62,16 +63,25 @@ class IFU(implicit val cfg: CoreConfig) extends Module {
 
   // Default
   io.axi.ar.valid := false.B
+  // 当前 IFU 每次取一个对齐的 32 位指令，使用单拍 INCR 请求，ID 固定为 0。
+  io.axi.ar.bits := 0.U.asTypeOf(io.axi.ar.bits)
   io.axi.ar.bits.addr := pc.io.pc
+  io.axi.ar.bits.len := 0.U
+  io.axi.ar.bits.size := 2.U
+  io.axi.ar.bits.burst := 1.U
   io.axi.r.ready := false.B
 
   // Tie-off 写通道 (IFU 只读，永不写)
   io.axi.aw.valid := false.B
-  io.axi.aw.bits.addr := 0.U
+  io.axi.aw.bits := 0.U.asTypeOf(io.axi.aw.bits)
   io.axi.w.valid := false.B
-  io.axi.w.bits.data := 0.U
-  io.axi.w.bits.strb := 0.U
+  io.axi.w.bits := 0.U.asTypeOf(io.axi.w.bits)
   io.axi.b.ready := false.B
+
+  when(io.axi.r.fire) {
+    assert(io.axi.r.bits.last && io.axi.r.bits.id === 0.U,
+      "IFU expects one R beat with ID 0")
+  }
 
   io.out.valid := false.B
   io.out.bits.pc := reqPcReg

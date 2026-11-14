@@ -24,7 +24,7 @@
  ***************************************************************************************/
 
 #include "config.h"
-#include "difftest.h"
+#include "cpu/difftest/difftest.h"
 
 #if ENABLE_DIFFTEST
 

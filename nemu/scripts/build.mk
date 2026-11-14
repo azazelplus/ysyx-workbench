@@ -1,4 +1,4 @@
-#
+# included by native.mk
 
 
 # 默认执行的目标是app.

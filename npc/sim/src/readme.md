@@ -10,13 +10,29 @@ sim.mk中的通配符会保证所有src下的.c, .cpp, .cc, .h, .hpp, .hh文件�
 
 
 main.cpp: 仿真主程序
-memory.h/cpp: 镜像装载、C++ RAM 数组、物理地址转换和字节掩码读写
-disasm.h/cpp: 反汇编模块, 将机器码转换为汇编字符串
+config.h: 仿真功能开关与默认参数
+cpu/cpu.h/cpp: CPU 执行控制、时钟推进、复位和波形
+cpu/difftest/difftest.h/cpp: 加载 NEMU 参考模型、初始化状态、逐条比较
+monitor/sdb/sdb.h/cpp: 调试器命令与交互循环
+memory/memory.h/cpp: 镜像装载、绑定硬件 RAM、物理地址转换和字节掩码读写
+memory/ram.h/cpp: 取得 Verilator 中 RAM 存储阵列的指针，交给 memory.cpp
+utils/disasm.h/cpp: 反汇编模块, 将机器码转换为汇编字符串
 trace/itrace.h/cpp: 指令跟踪模块, 用于打印每条指令
 trace/mtrace.h/cpp: 内存访问跟踪
 trace/ftrace.h/cpp: 函数调用跟踪
 trace/dtrace.h/cpp: 设备访问跟踪 (串口/RTC/MMIO)
-dpic.cpp: DPI-C 接口, 硬件-软件协作仿真的存储器和 MMIO 操作
+dpi/dpic.cpp: DPI-C 接口, 寄存器同步、TRAP 和 RAM 访问追踪；保留原 PMEM 接口供对照
+device/device.h/cpp: UART / RTC 的 MMIO 设备实现
+
+头文件与实现放在同一职责目录中，跨模块引用使用相对于 sim/src 的路径，
+例如 `#include "memory/memory.h"`、`#include "cpu/difftest/difftest.h"`。
+sim.mk 递归收集源文件，增加上述目录内的 .cpp 文件无需逐个登记。
+
+程序镜像的装载顺序：
+cpu_init 创建并复位 DUT → ram_bind 绑定硬件存储阵列
+→ memory_load_image 清零 RAM 并将 .bin 直接读入 RAM → cpu_exec 开始执行。
+运行期间，CPU 经 Arbiter → Xbar → RAM.scala 的 AXI 接口访问内存。
+SDB 的 memory_read_word 直接查看同一个存储阵列；开启 DiffTest 时，在 CPU 开始执行前从 RAM 复制初始镜像到 NEMU。
 
 
 === DTRACE (设备访问跟踪) 功能 ===

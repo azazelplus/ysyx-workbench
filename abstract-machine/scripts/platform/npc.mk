@@ -1,4 +1,4 @@
-# 为npc这台cpu制作客户程序.bin
+# run: 为npc这台cpu制作客户程序.bin, 并
 
 # 由[AM_HOME]/Makefile会include.
 # 本makefile会$(MAKE) run npc/Makefile, 开一个新make运行npc/Makefile.
@@ -82,7 +82,7 @@ MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
 CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
 
-# insert-arg伪目标: 使用insert-arg.py脚本, 将mainargs字符串插入到生成的二进制镜像文件中指定位置, 得到
+# 给客户程序main函数提供mainargs. 其中变量`mainargs`由用户命令行给出. (注意命令行给出的参数在子make进程中作为环境变量继承.) 使用insert-arg.py脚本, 将mainargs字符串插入到生成的二进制镜像文件中指定位置.
 insert-arg: image
 	@python $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) $(MAINARGS_PLACEHOLDER) "$(mainargs)"
 
@@ -91,15 +91,15 @@ image: image-dep
 	@echo + OBJCOPY "->" $(IMAGE_REL).bin
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
-# run目标: 调用 `NPC_HOME/Makefile` 的run规则, 并传入生成的二进制镜像文件. 前者将编译出可运行的verilator仿真程序, 并把客户程序image加载进去, 然后运行.
-# 同时传递 ELF 文件路径用于 ftrace
+# run目标: 进入npc目录, 构建硬件verilator仿真器.
+# 具体地: 开个新make进程运行 `npc/Makefile` 的run规则, 并传入生成的bin. 前者将编译出可运行的verilator仿真程序, 并把客户程序image加载进去, 然后运行. 同时传递 ELF 文件路径用于 ftrace
 run: insert-arg
 	$(MAKE) -C $(NPC_HOME) run IMG=$(IMAGE).bin ELF=$(IMAGE).elf \
 		NPC_CPPFLAGS="$(NPC_CPPFLAGS)" NPC_CONFIG_MK="$(NPC_CONFIG_MK)"
 
-# 只构建仿真器或运行内存测试，也从此处提供相同的配置。
-sim check-memory:
+# 只构建仿真器，也从此处提供相同的配置。
+sim:
 	$(MAKE) -C $(NPC_HOME) $@ \
 		NPC_CPPFLAGS="$(NPC_CPPFLAGS)" NPC_CONFIG_MK="$(NPC_CONFIG_MK)"
 
-.PHONY: insert-arg sim check-memory
+.PHONY: insert-arg sim

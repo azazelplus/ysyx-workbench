@@ -1,9 +1,11 @@
 #include "config.h"
 #if ENABLE_SDB
 
-#include "sdb.h"
-#include "cpu.h"
-#include "dpic.h"
+#include "monitor/sdb/sdb.h"
+#include "cpu/cpu.h"
+#include "dpi/dpic.h"
+#include "memory/memory.h"
+#include "device/device.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -69,7 +71,10 @@ static int cmd_x(char *args) {
         return 0;
     }
     for (int i = 0; i < n; i++) {
-        uint32_t data = pmem_read(addr + i * 4);
+        // 调试器直接读取内存/设备后端；DPI-C 入口只供硬件调用。
+        const uint32_t paddr = (addr + i * 4) & ~0x3u;
+        uint32_t data = memory_contains(paddr, 4)
+            ? memory_read_word(paddr) : mmio_read(paddr);
         printf("0x%08x: 0x%08x\n", addr + i * 4, data);
     }
     return 0;

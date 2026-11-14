@@ -14,7 +14,7 @@ SDL是一个跨平台的多媒体开发库, 提供对音频、键盘、鼠标、
 void init_map();
 void init_serial();
 void init_timer();
-void init_vga();
+void init_vga();  //vga.c
 void init_i8042();
 void init_audio();
 void init_disk();
@@ -41,6 +41,7 @@ void device_update() {
 
   IFDEF(CONFIG_HAS_VGA, vga_update_screen());
 
+  // am构建客户程序为nemu的情形. 不适用...
 #ifndef CONFIG_TARGET_AM
   SDL_Event event;
   while (SDL_PollEvent(&event)) {
@@ -64,6 +65,7 @@ void device_update() {
 #endif
 }
 
+
 void sdl_clear_event_queue() {
 #ifndef CONFIG_TARGET_AM
   SDL_Event event;
@@ -71,6 +73,7 @@ void sdl_clear_event_queue() {
 #endif
 }
 
+// consumer: init_monitor()
 void init_device() {
   IFDEF(CONFIG_TARGET_AM, ioe_init());
   init_map();

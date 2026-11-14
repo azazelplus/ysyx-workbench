@@ -2,6 +2,8 @@
 // 通过 DPI-C 机制与 C++ 仿真环境交互.
 // PMEMRead内存访问接口 input: raddr  output: rdata
 // PMEMWrite内存写入接口 input: wen, waddr, wdata,
+// MMIORead设备读取接口 input: clock, ren, raddr  output: rdata（握手后锁存）
+// MMIOWrite设备写入接口 input: clock, wen, waddr, wdata, wmask
 // EBREAKDetect EBREAK指令检测接口 input: inst, valid
 
 
@@ -54,6 +56,43 @@ class PMEMWrite extends ExtModule {
   val wdata  = IO(Input(UInt(32.W)))
   val wmask  = IO(Input(UInt(4.W)))
   addResource("/PMEMWrite.sv")
+}
+
+/** RAM 访问追踪：只观察握手，数据读写由 RAM.scala 自己完成。 */
+class RAMTrace extends ExtModule {
+  val clock = IO(Input(Clock()))
+  val reset = IO(Input(Bool()))
+  val ar_fire = IO(Input(Bool()))
+  val ar_addr = IO(Input(UInt(32.W)))
+  val ar_size = IO(Input(UInt(3.W)))
+  val r_fire = IO(Input(Bool()))
+  val r_data = IO(Input(UInt(32.W)))
+  val aw_fire = IO(Input(Bool()))
+  val aw_addr = IO(Input(UInt(32.W)))
+  val aw_size = IO(Input(UInt(3.W)))
+  val w_fire = IO(Input(Bool()))
+  val w_data = IO(Input(UInt(32.W)))
+  val w_strb = IO(Input(UInt(4.W)))
+  addResource("/RAMTrace.sv")
+}
+
+/** DPI-C MMIO 读取模块：ren 对应 AR 握手，返回值锁存并保持到下一次读取。 */
+class MMIORead extends ExtModule {
+  val clock = IO(Input(Clock()))
+  val ren = IO(Input(Bool()))
+  val raddr = IO(Input(UInt(32.W)))
+  val rdata = IO(Output(UInt(32.W)))
+  addResource("/MMIORead.sv")
+}
+
+/** DPI-C MMIO 写入模块：wen 只在本笔 AW 和 W 都被接收的时钟沿有效。 */
+class MMIOWrite extends ExtModule {
+  val clock = IO(Input(Clock()))
+  val wen = IO(Input(Bool()))
+  val waddr = IO(Input(UInt(32.W)))
+  val wdata = IO(Input(UInt(32.W)))
+  val wmask = IO(Input(UInt(4.W)))
+  addResource("/MMIOWrite.sv")
 }
 
 /**

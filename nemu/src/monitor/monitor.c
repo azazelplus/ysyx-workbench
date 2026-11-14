@@ -1,9 +1,8 @@
-/***************************************************************************************
-初始化.
-* 挂载点:
-* welcome(), parse_args(), 在init_monitor(), load_img()中被调用.
-* init_monitor()在main()中被调用.
-***************************************************************************************/
+/**
+nemu开机自检+系统初始化.
+* welcome(), parse_args()的consumer: init_monitor(), load_img()
+* init_monitor的consumer: main()
+*/
 
 #include <isa.h>
 #include <memory/paddr.h>
@@ -16,6 +15,7 @@ void init_device();
 void init_sdb();
 void init_disasm(const char *triple);
 
+// consumer: monitor.c: init_monitor()
 static void welcome() {
   Log("Trace: %s", MUXDEF(CONFIG_TRACE, ANSI_FMT("ON", ANSI_FG_GREEN), ANSI_FMT("OFF", ANSI_FG_RED)));
   IFDEF(CONFIG_TRACE, Log("If trace is enabled, a log file will be generated "
@@ -24,7 +24,7 @@ static void welcome() {
   Log("Build time: %s, %s", __TIME__, __DATE__);
   printf("Welcome to %s-NEMU!\n", ANSI_FMT(str(__GUEST_ISA__), ANSI_FG_YELLOW ANSI_BG_RED));
   printf("For help, type \"help\"\n");
-  //让我们关掉assert
+  //👇
   //Log("Exercise: Please remove me in the source code and compile NEMU again.");
   //assert(0);
 }
@@ -41,7 +41,7 @@ static char *img_file = NULL;     // 位置参数：要加载到内存的客户�
 static char *elf_file = NULL;     // -e/--elf: ELF 文件路径，供 ftrace 解析函数符号表（.symtab/.strtab）
 static int difftest_port = 1234;  // -p/--port: 差分测试对比端口号（与参考模型通信）
 
-// 加载命令行指定的镜像文件.
+// 加载镜像文件img_file. consumer: init_moonitor()  img_file即nemu.mk传入的IMG.
 static long load_img() {
   if (img_file == NULL) {
     Log("No image is given. Use the default build-in image.");
@@ -57,7 +57,7 @@ static long load_img() {
   Log("The image is %s, size = %ld", img_file, size);
 
   fseek(fp, 0, SEEK_SET);
-  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
+  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);  // 将img_file客户程序载入nemu模拟器的内存对应pc位置`RESET_VECTOR`.
   assert(ret == 1);
 
   fclose(fp);
@@ -65,7 +65,7 @@ static long load_img() {
 }
 
 
-// 处理命令行参数. 使用getopt_long()函数(GNU扩展库)和全局变量optarg, 解析命令行参数并存到诸如log_file等变量中.
+// 处理nemu仿真可执行程序的命令行参数. 具体地, 处理 native.mk的run命令中的 $(ARGS) 和 $(IMG). 使用getopt_long()函数(GNU扩展库)和全局变量optarg, 解析命令行参数并存到诸如log_file等变量中.
 static int parse_args(int argc, char *argv[]) {
   const struct option table[] = {
     {"batch"    , no_argument      , NULL, 'b'},
@@ -99,12 +99,12 @@ static int parse_args(int argc, char *argv[]) {
 }
 
 /*
-// 初始化监视器. 
+// 初始化监视器. consumer:
 */ 
 void init_monitor(int argc, char *argv[]) {
   /* Perform some global initialization. */
 
-  /* Parse arguments. */
+  /* 处理命令行参数 */
   parse_args(argc, argv);
 
   /* Set random seed. */

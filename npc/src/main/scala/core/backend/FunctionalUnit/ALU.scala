@@ -2,7 +2,7 @@ package core
 
 import chisel3._
 import chisel3.util._
-import azazerv.ALUFunction
+import azazerv.idu.ALUFunction
 
 class ALU(implicit val cfg: CoreConfig) extends Module {
   val io = IO(new Bundle {

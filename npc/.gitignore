@@ -13,8 +13,6 @@
 !/sim/src
 !/sim/src/**
 !/sim/sim.mk
-!/sim/tests/
-!/sim/tests/**
 !/docs/
 !/docs/**
 

@@ -53,7 +53,7 @@ class AXI4SlaveBus(
 class AXI4AR(val cfg: BusConfig, userType: Option[Data] = None) extends Bundle {
   val id = UInt(cfg.idBits.W)
   val addr = UInt(cfg.addrBits.W)
-  val len = UInt(8.W)
+  val len = UInt(8.W) 
   val size = UInt(3.W)
   val burst = UInt(2.W)
   val user = userType.map(_.cloneType).getOrElse(UInt(0.W))

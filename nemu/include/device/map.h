@@ -9,18 +9,11 @@ nemu/src.device/io/map.c实现映射管理.
 
 #include <cpu/difftest.h>
 
-// 定义数据类型: io_callback_t, 它是一个函数指针类型, 等价于: void (*)(uint32_t, int, bool)
-// 然后你就可以:
-  /*
-  void io_handler(uint32_t addr, int len, bool is_write){
-    //...
-  }
-  io_callback_t cb = io_handler;
-  */
+// 定义回调函函数类型别名
 typedef void(*io_callback_t)(uint32_t, int, bool);
 
-// 定义在map.c
-uint8_t* new_space(int size);
+
+uint8_t* new_space(int size); // map.c
 
 // 每个外设都有一个IOMap结构体实例来描述它的MMIO映射.
 typedef struct {
@@ -67,7 +60,7 @@ static inline int find_mapid_by_addr(IOMap *maps, int size, paddr_t addr) {
   for (i = 0; i < size; i ++) {
     //如果addr在第i个设备的地址范围内
     if (map_inside(maps + i, addr)) {
-      difftest_skip_ref();  // 通知差分测试：跳过该指令的状态对比(为什麽?)
+      difftest_skip_ref();  // 通知差分测试：跳过该指令的状态对比.
       return i; //返回设备的索引号
     }
   }

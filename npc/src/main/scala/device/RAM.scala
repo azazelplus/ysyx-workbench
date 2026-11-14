@@ -8,7 +8,7 @@ import bus._
 import chisel3.dontTouch
 
 /*   
-* 片上资源模拟 RAM 模块 的存储器. 简单双端口.
+* 片上资源模拟 RAM 模块 的存储器. 简单双端口, 支持N个多事务在途. 具体地, 虽然R数据通道串行输出, 但是允许多个读事务并行, 分别模拟延迟. 不支持交织.
 * 时序特性: 异步读 + 同步写 + 写转发保护（同周期 RAW(虽然这正常情况下应该不会发生) , 返回最新数据）
 * 核心是`mem`类, 用Mem()实例化出一个异步读同步写(这个读写逻辑是用户代码决定的)的硬件. Mem会被vivado综合为BRAM. BRAM硬件特性: 异步读同步写, 同一时刻读写同地址则返回旧值.
 * Mem()对象的.read方法是异步读, .write方法是同步写. 所以chisel设计上就希望调用这两个方法实现异步读(节省时钟周期)同步写(暴政存储内容不被噪声破坏)的存储器行为.
@@ -97,11 +97,15 @@ class RAM(implicit val cfg: RAMConfig) extends Module {
   private val rIdxBits = log2Ceil(N).max(1)     // 索引槽编码位数.
   private val rDelayBits = log2Ceil(cfg.readLatency).max(1) //倒计时延迟编码位数.
 
+  // 只有一个槽位时直接访问第 0 项, 多个槽位时才需要动态索引`rActiveIdx`.
+  private def slot[T <: Data](entries: Vec[T], index: UInt): T =
+    if (N == 1) entries(0) else entries(index)
+
   // 读请求表. 本质是 AR 申请寄存器组, 记录还没完成对应R事务的AR事务情况. N组寄存器, 存储每个槽位的信息...每个槽位独立跟踪一笔 AR 请求
   val rEntryValid = RegInit(VecInit(Seq.fill(N)(false.B)))  // 槽位的使能寄存器(默认0). 为0表示空闲.  1 * N bits
   val rEntryId = Reg(Vec(N, UInt(cfg.bus.idBits.W)))        // 本槽位存的AR事务ID. bus.idBits * N bits
   val rEntryAddr = Reg(Vec(N, UInt(cfg.memWordAddrBits.W))) // AR事务目标读取地址
-  val rEntryLen = Reg(Vec(N, UInt(8.W)))                  // 即AXI中的ARLEN, 即`突发beat数-1`
+  val rEntryLen = Reg(Vec(N, UInt(8.W)))                  // 即ARLEN, `突发beat数-1`.
   val rEntryBeat = Reg(Vec(N, UInt(8.W)))                 // 当前 Beat 索引, 用于跟踪当前burst的进度. rEntryBeat == rEntryLen 时, 触发R通道的 RLAST信号拉高, 本次突发传输完成.
   val rEntryDelay = Reg(Vec(N, UInt(rDelayBits.W)))       // 本AR事务的剩余延迟周期数.
 
@@ -121,14 +125,14 @@ class RAM(implicit val cfg: RAMConfig) extends Module {
     rEntryDelay(rFreeIdx) := (cfg.readLatency - 1).U // 记录AR事务的初始延迟周期数. 
   }
 
-  // 所有有效槽位并行倒计时.
+  // 所有有效槽位并行倒计时, 模拟延迟.
   for (i <- 0 until N) {
     when(rEntryValid(i) && rEntryDelay(i) > 0.U) {
       rEntryDelay(i) := rEntryDelay(i) - 1.U
     }
   }
 
-  // R输出仲裁ready信号: 不交织，锁定到一个突发直到 last
+  // rReadyVec: 槽位ready信号, 每个槽位有没有准备好R 输出. 
   val rReadyVec = VecInit(
     (0 until N).map(i => rEntryValid(i) && rEntryDelay(i) === 0.U)
   )   // rReadyVec: 每个槽位有没有准备好R 输出. (有效&&延迟倒计时为0时准备好)
@@ -149,24 +153,24 @@ class RAM(implicit val cfg: RAMConfig) extends Module {
   }
 
   when(io.axi.r.fire) {   // R通道fire时处理：同时更新burst lock状态机和读请求槽位
-    when(rEntryBeat(rActiveIdx) === rEntryLen(rActiveIdx)) {// 当前beat是突发的最后一个：槽位清理 + burst lock解锁
-      rEntryValid(rActiveIdx) := false.B                        // 释放读请求槽位
+    when(slot(rEntryBeat, rActiveIdx) === slot(rEntryLen, rActiveIdx)) {// 当前beat是突发的最后一个：槽位清理 + burst lock解锁
+      slot(rEntryValid, rActiveIdx) := false.B                        // 释放读请求槽位
       rSending := false.B                                       // 解锁burst lock，下周期可服务新突发
     }.otherwise {         // 当前beat不是最后一个：继续迭代
-      rEntryBeat(rActiveIdx) := rEntryBeat(rActiveIdx) + 1.U    // beat计数递增
-      rEntryAddr(rActiveIdx) := rEntryAddr(rActiveIdx) + 1.U    // 地址指向下一字
+      slot(rEntryBeat, rActiveIdx) := slot(rEntryBeat, rActiveIdx) + 1.U    // beat计数递增
+      slot(rEntryAddr, rActiveIdx) := slot(rEntryAddr, rActiveIdx) + 1.U    // 地址指向下一字
     }
   }
 
   // 连接 读通道状态机产生的协议控制信号 到 内部实例化的存储核心模块AsyncMemModule
   mem.io.readEnable := rActiveValid     // 存储核心模块AsyncMemModule的读使能信号, 由协议状态机产生的rActiveValid (R通道ready) 驱动.
-  mem.io.readAddr := rEntryAddr(rActiveIdx)   // 存储核心模块AsyncMemModule的读地址信号, 由协议状态机产生的rEntryAddr(rActiveIdx) 驱动. target
+  mem.io.readAddr := slot(rEntryAddr, rActiveIdx)   // 存储核心模块AsyncMemModule的读地址信号, 由协议状态机产生的rEntryAddr(rActiveIdx) 驱动. target
 
   // 连接 读通道状态机产生的协议控制信号 到 AXI4SlaveBus接口的R通道输出
   io.axi.r.valid := rActiveValid
   io.axi.r.bits.data := mem.io.readData
-  io.axi.r.bits.last := rEntryBeat(rActiveIdx) === rEntryLen(rActiveIdx)
-  io.axi.r.bits.id := rEntryId(rActiveIdx)
+  io.axi.r.bits.last := slot(rEntryBeat, rActiveIdx) === slot(rEntryLen, rActiveIdx)
+  io.axi.r.bits.id := slot(rEntryId, rActiveIdx)
 
 
   // =========================================================
@@ -209,15 +213,15 @@ class RAM(implicit val cfg: RAMConfig) extends Module {
   }
 
   // B 输出：队头就绪（delay=0）时输出 + 出队
-  val bHeadReady = bPipeValid(bPipeDeq) && bPipeDelay(bPipeDeq) === 0.U // 队头就绪
+  val bHeadReady = slot(bPipeValid, bPipeDeq) && slot(bPipeDelay, bPipeDeq) === 0.U // 队头就绪
   io.axi.b.valid := bHeadReady            // B通道有效信号由队头就绪驱动
-  io.axi.b.bits.id := bPipeId(bPipeDeq)   // 接入b通道 事务ID 
+  io.axi.b.bits.id := slot(bPipeId, bPipeDeq)   // 接入b通道 事务ID 
   // axi.b.bits.resp一直是初始化0, 因为模拟RAM不会出错.
   // axi.b.bits.user也用不到, 一直是初始化值.
 
   val doDeqB = io.axi.b.fire  // b.fire即出队信号.
   when(doDeqB) {
-    bPipeValid(bPipeDeq) := false.B
+    slot(bPipeValid, bPipeDeq) := false.B
     bPipeDeq := Mux(bPipeDeq === (N - 1).U, 0.U, bPipeDeq + 1.U)
   }
 
@@ -226,9 +230,9 @@ class RAM(implicit val cfg: RAMConfig) extends Module {
   val bEnqId = Wire(UInt(cfg.bus.idBits.W))
   bEnqId := 0.U
   when(doEnqB) {
-    bPipeValid(bPipeEnq) := true.B
-    bPipeId(bPipeEnq) := bEnqId
-    bPipeDelay(bPipeEnq) := (cfg.writeLatency - 1).U
+    slot(bPipeValid, bPipeEnq) := true.B
+    slot(bPipeId, bPipeEnq) := bEnqId
+    slot(bPipeDelay, bPipeEnq) := (cfg.writeLatency - 1).U
     bPipeEnq := Mux(bPipeEnq === (N - 1).U, 0.U, bPipeEnq + 1.U)
   }
   when(doEnqB =/= doDeqB) {

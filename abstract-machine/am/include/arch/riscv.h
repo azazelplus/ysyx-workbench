@@ -12,14 +12,14 @@
 // 如果将来添加 mcycle 等字段，只需修改这里
 #define NR_CSR 3
 
-// Context结构体是cpu的某一瞬间快照, 存储GPR和CSR.
+// Context, 上下文. cpu的某一瞬间快照, 存储GPR和CSR.
 // 注意：成员顺序需与 trap.S 的入栈布局一致。
 struct Context {
   uintptr_t gpr[NR_REGS];
   uintptr_t mcause;
   uintptr_t mstatus;
   uintptr_t mepc;
-  void *pdir;
+  void *pdir; //页目录
 };
 
 // 用GPR1统一一下系统调用号. ABI规定, RISCI中, a7(x17)寄存器用来传递系统调用号; RISCE中, a5(x15)寄存器用来传递系统调用号. 

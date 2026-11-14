@@ -32,11 +32,8 @@
 ##########################################################
 
 
-
-
-
 ##########################################################
-# 本Makefile的run规则由具体架构的.mk提供(它们被include在本Makefile中). 本Makefile的公共部分主要编译出客户程序image
+# 本Makefile的run规则由具体架构的.mk提供(它们被include在本Makefile中).
 ##########################################################
 
 
@@ -269,16 +266,15 @@ endif
 -include $(addprefix $(DST_DIR)/, $(addsuffix .d, $(basename $(SRCS))))
 
 
-
 ## 6. Miscellaneous
-
 ### Build order control
+.PHONY: image image-dep archive run
 image: image-dep
 archive: $(ARCHIVE)
 image-dep: $(IMAGE).elf
-.PHONY: image image-dep archive run
 
-### Force to rebuild a rule
+
+###0 Force to rebuild a rule
 force:
 .PHONY: force
 

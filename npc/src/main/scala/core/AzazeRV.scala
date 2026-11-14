@@ -1,37 +1,4 @@
-// AzazeRV 顶层模块 - 多周期握手版本
-//
-// ┌─────────────────────────────── 整体架构 ──────────────────────────────────┐
-// │                                                                          │
-// │  指令生命周期: 每条指令依次经过 IFU → IDU → EXU → LSU → WBU 五个阶段.    │
-// │  阶段之间通过 Decoupled (valid/ready) 握手 + PipeReg/Queue 缓冲连接.     │
-// │                                                                          │
-// │  ┌─────┐ PipeReg ┌─────┐ PipeReg ┌─────┐   Q(1)  ┌─────┐  Q(1)  ┌────┐│
-// │  │ IFU ├──→ ▪ ──→│ IDU ├──→ ▪ ──→│ EXU ├──→ ▪ ──→│ LSU ├──→▪──→│WBU ││
-// │  └──┬──┘  if_id  └─┬───┘  id_ex  └──┬──┘  ex_ls  └──┬──┘ ls_wb └─┬──┘│
-// │     │               │                │                │             │    │
-// │  ┌──┴──┐         ┌──┴──┐         ┌───┴──┐         ┌──┴──┐      ┌──┴──┐│
-// │  │PMEM │         │ GPR │         │ CSR  │         │PMEM │      │ GPR ││
-// │  │IMEM │         │read │         │ File │         │DMEM │      │write││
-// │  └─────┘         └─────┘         └──────┘         └─────┘      └─────┘│
-// │                                                                        │
-// │  关键设计决策:                                                          │
-// │                                                                        │
-// │  1. 一次一条 (pipeline_busy):                                           │
-// │     同一时刻只有一条指令在 IDU→WBU 路径中.                               │
-// │     这消除了所有 RAW 数据冒险, 无需数据前递 (forwarding).                │
-// │     IFU 可以预取下一条指令到 if_id_q, 但 IDU 被门控,                    │
-// │     直到 WBU 提交后才放行. 此时 GPR 已有最新值.                          │
-// │                                                                        │
-// │  2. 跳转冲刷 (flush + inst_valid):                                      │
-// │     当 EXU 检测到 jal/jalr/branch/ecall/ebreak/mret 时:                 │
-// │       - if_id_q 和 id_ex_q (PipeReg) 中的指令被标记 inst_valid=false    │
-// │       - IFU 丢弃当前 PMEM 响应, 用新 PC 重新取指                        │
-// │       - 下游模块检测 inst_valid=false, 透传而不执行                     │
-// │       - 跳转指令本身继续流过 LSU→WBU 完成写回 (如 jal 写 ra)            │
-// │       - pipeline_busy 不在 flush 时清除, 而是等 WBU 自然提交             │
-// │         (否则 IDU 可能在 jal 写回 ra 之前就读取了旧的 ra 值)             │
-// │                                                                        │
-// └────────────────────────────────────────────────────────────────────────┘
+// AzazeRV 顶层模块
 
 package azazerv
 
@@ -54,7 +21,7 @@ import _root_.circt.stage.ChiselStage
   *   - ex_ls_q, ls_wb_q 使用 Queue (无需冲刷，inst_valid 自然透传)
   *
   * 特点：
-  *   - IFU, PMEM 使用 AXI-like 接口 (AR/R 取指, AR/R + AW/W/B 访存)
+  *   - IFU, RAM 使用 AXI4 接口 (AR/R 取指, AR/R + AW/W/B 访存)
   *   - 无数据前递 (FWU) - 暂无
   *   - 无暂停逻辑 (HDU) - 暂无
   */
@@ -63,6 +30,7 @@ class AzazeRV(implicit val cfg: CoreConfig) extends Module {
     val debug_pc = Output(UInt(cfg.addrBits.W))
     val debug_inst = Output(UInt(cfg.instBits.W))
     val debug_reset_pc = Output(UInt(cfg.addrBits.W))
+    val debug_ram_base = Output(UInt(cfg.addrBits.W))
   })
 
   // 将硬件自身的复位约定交给仿真器，用于检查镜像入口和初始化 REF。
@@ -79,8 +47,16 @@ class AzazeRV(implicit val cfg: CoreConfig) extends Module {
   val gprfile = Module(new GPRFile)
   val csrfile = Module(new CSRFile)
   val regSync = Module(new RegFileSync)
-  val pmem = Module(new PMEM)
-  val arbiter = Module(new AXILiteArbiter)  // AXI-Lite 总线仲裁器
+  val arbiter = Module(new AXI4Arbiter)  // AXI4 总线仲裁器
+  val xbar = Module(new Xbar)
+  val ramConfig = device.RAMConfig(cfg.bus, xbar.ramSize,
+    readLatency = 1, writeLatency = 1, outstanding = 1)
+  val ram = Module(new device.RAM()(ramConfig))
+  val mmio = Module(new device.MMIO)
+  val ram_trace = Module(new RAMTrace)
+  val ebreak_detect = Module(new EBREAKDetect) // EBREAK 指令检测 - 用于仿真终止
+
+  io.debug_ram_base := xbar.ramBase.U(cfg.addrBits.W)
 
 
   // =================================================================================
@@ -90,10 +66,30 @@ class AzazeRV(implicit val cfg: CoreConfig) extends Module {
   ifu.io.jump_en   := exu.io.jump_en
   ifu.io.jump_addr := exu.io.jump_addr
 
-  // IFU <-> Arbiter <-> PMEM (通过 AXI-Lite 总线)
-  arbiter.io.master0 <> ifu.io.axi   // IFU 为 Master 0 (优先级低)
-  arbiter.io.master1 <> lsu.io.axi   // LSU 为 Master 1 (优先级高)
-  pmem.io.axi <> arbiter.io.slave    // PMEM 为 Slave
+  // IFU <-> Arbiter <-> Xbar <-> RAM / MMIO (通过 AXI4 总线)
+  arbiter.io.master0 <> ifu.io.axi  // 来自 IFU，优先级低
+  arbiter.io.master1 <> lsu.io.axi  // 来自 LSU，优先级高
+  xbar.io.in <> arbiter.io.slave
+  ram.io.axi <> xbar.io.ram
+  // Xbar 原样转发物理地址；在 RAM 边界减去基地址，得到 RAM 内部的字节偏移。
+  ram.io.axi.ar.bits.addr := xbar.io.ram.ar.bits.addr - xbar.ramBase.U(cfg.addrBits.W)
+  ram.io.axi.aw.bits.addr := xbar.io.ram.aw.bits.addr - xbar.ramBase.U(cfg.addrBits.W)
+  mmio.io.axi <> xbar.io.mmio      // UART / RTC 独立于普通内存
+
+  // 旁路观察 RAM 的实际 AXI 握手，记录物理地址；不参与 ready/valid 控制。
+  ram_trace.clock := clock
+  ram_trace.reset := reset.asBool
+  ram_trace.ar_fire := xbar.io.ram.ar.fire
+  ram_trace.ar_addr := xbar.io.ram.ar.bits.addr
+  ram_trace.ar_size := xbar.io.ram.ar.bits.size
+  ram_trace.r_fire := xbar.io.ram.r.fire
+  ram_trace.r_data := xbar.io.ram.r.bits.data
+  ram_trace.aw_fire := xbar.io.ram.aw.fire
+  ram_trace.aw_addr := xbar.io.ram.aw.bits.addr
+  ram_trace.aw_size := xbar.io.ram.aw.bits.size
+  ram_trace.w_fire := xbar.io.ram.w.fire
+  ram_trace.w_data := xbar.io.ram.w.bits.data
+  ram_trace.w_strb := xbar.io.ram.w.bits.strb
 
   // =================================================================================
   // 3. 流水线互锁 + 跳转冲刷
@@ -209,8 +205,13 @@ class AzazeRV(implicit val cfg: CoreConfig) extends Module {
   // =================================================================================
   // 6. EBREAK 检测与调试 (使用 WBU 输出)
   // =================================================================================
-  pmem.io.ebreak_inst  := wbu.io.debug_inst
-  pmem.io.ebreak_valid := wbu.io.inst_valid
+  // =====================================================================
+  // EBREAK 检测模块（从 PMEM 移到顶层）
+  // EBREAK 检测接口 WBU->EBREAKDetect
+  // =====================================================================
+  ebreak_detect.clock := clock
+  ebreak_detect.inst  := wbu.io.debug_inst
+  ebreak_detect.valid := wbu.io.inst_valid
 
   io.debug_pc   := wbu.io.debug_pc
   io.debug_inst := wbu.io.debug_inst

@@ -125,7 +125,7 @@ static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 /**
  * guest_to_host - 客户机物理地址 → 主机内存指针
  * @paddr: 客户机物理地址（如 0x80000004）
- * @return: 指向 pmem 数组中对应位置的指针
+ * @return: 主机内存指针, 指向 pmem 数组中对应位置的指针.
  * 
  * 公式：pmem_index = paddr - CONFIG_MBASE
  * 例如：paddr=0x80000004, CONFIG_MBASE=0x80000000 → pmem[4]

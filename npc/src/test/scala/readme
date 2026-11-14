@@ -1,0 +1,17 @@
+
+
+
+
+
+
+cd /home/azazel/ysyx-workbench/npc
+
+
+# 只运行 一个测试 LSU 握手测试
+sbt 'testOnly azazerv.LSUHandshakeSpec'
+
+
+# 运行全部 Spec
+sbt test
+
+

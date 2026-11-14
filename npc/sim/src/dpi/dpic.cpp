@@ -7,46 +7,19 @@
 // 配置文件（必须在其他 trace 头文件之前 include）
 #include "config.h"
 
-#include "cpu.h"
-#include "dpic.h"
-#include "memory.h"
+#include "cpu/cpu.h"
+#include "dpi/dpic.h"
+#include "memory/memory.h"
 #include "trace/itrace.h"
 #include "trace/mtrace.h"
 #include "trace/ftrace.h"
 #include "trace/dtrace.h"
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>       // 用于时钟功能
 
 // Verilator 生成的头文件（用于直接访问内部信号）
 #include "VAzazeRV.h"
 #include "VAzazeRV___024root.h"
-
-// 系统启动时间（用于计算 uptime）
-static uint64_t g_boot_time = 0;
-
-
-/**
- * get_time_us() - 利用库函数获取当前系统时间（微秒）.
- * 
- * @return 当前时间戳，单位为微秒 (us)
- ***************************************************************************************/
-static uint64_t get_time_us() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (uint64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
-}
-
-
-/** 
- * init_device() - 初始化外设
- * 
- * 在仿真开始时调用，记录启动时间
- */
-void init_device() {
-    g_boot_time = get_time_us();
-}
-
 
 // ============ DUT 指针（ebreak_handler 和 DiffTest 共用）============
 // 由 main.cpp 调用 set_dut_ptr() 设置，用于直接访问 Verilator 内部信号
@@ -134,81 +107,12 @@ uint32_t* get_cpu_regs() {
 
 // ============ DPI-C 函数实现 ============
 
-/***************************************************************************************
- * pmem_read - 从存储器或 MMIO 设备读取 32 位数据
- * 
- * @param raddr: 读取的物理地址（会自动对齐到 4 字节边界）
- * @return 读取到的 32 位数据；对于无效地址返回 0
- * 
- * 【MMIO 设备】
- * - NPC_RTC_BASE：返回系统启动后经过的时间
- *   - 偏移 0: 低 32 位 (us)
- *   - 偏移 4: 高 32 位 (us)
- ***************************************************************************************/
-extern "C" uint32_t pmem_read(uint32_t raddr) {
-    uint32_t addr = raddr & ~0x3u;  // 对齐到 4 字节边界
-    
-    // -------- MMIO: 时钟 (RTC) --------
-    // 返回系统启动后经过的微秒数
-    if (addr == NPC_RTC_BASE) {
-        uint64_t uptime = get_time_us() - g_boot_time;
-        uint32_t data = (uint32_t)(uptime & 0xFFFFFFFF);  // 低 32 位
-        dtrace.log_read("RTC", addr, data, 4);
-        return data;
-    }
-    if (addr == NPC_RTC_BASE + 4) {
-        uint64_t uptime = get_time_us() - g_boot_time;
-        uint32_t data = (uint32_t)(uptime >> 32);         // 高 32 位
-        dtrace.log_read("RTC", addr, data, 4);
-        return data;
-    }
-    
-    // -------- 普通内存访问 --------
-    if (!memory_contains(addr, 4)) {
-        // 流水线初始化阶段或非 Load 指令时可能读取无效地址，静默返回 0
-        return 0;
-    }
-    
-    uint32_t data = memory_read_word(addr);
-    
+// RAM 的数据由硬件维护；这两个入口仅记录实际握手，不再承担存储器读写。
+extern "C" void ram_trace_read(uint32_t addr, uint32_t data) {
     mtrace.write(addr, data, 4, MTRACE_READ, g_current_pc, g_cycle);
-
-    return data;
 }
 
-/***************************************************************************************
- * pmem_write - 向存储器或 MMIO 设备写入数据
- * 
- * @param waddr: 写入的物理地址（会自动对齐到 4 字节边界）
- * @param wdata: 要写入的 32 位数据
- * @param wmask: 字节写掩码，每个 bit 对应 wdata 中的一个字节
- *               例如 wmask=0x3 表示只写入最低 2 字节
- * 【MMIO 设备】
- * - NPC_UART_BASE：串口输出，写入最低字节到终端
- ***************************************************************************************/
-extern "C" void pmem_write(int waddr, int wdata, char wmask) {
-    uint32_t addr = (uint32_t)waddr & ~0x3u;  // 对齐到 4 字节边界
-    uint32_t data = (uint32_t)wdata;
-    uint8_t mask = (uint8_t)wmask & 0x0F;
-
-    // -------- MMIO: 串口输出 --------
-    // 将最低字节输出到终端
-    if (addr == NPC_UART_BASE) {
-        if (mask & 1) {
-            uint8_t ch = data & 0xFF;
-            dtrace.log_write("SERIAL", addr, ch, 1);
-            putchar(ch);
-            fflush(stdout); // 确保字符立即输出
-        }
-        return;
-    }
-
-    // 检查有效地址
-    if (!memory_contains(addr, 4)) {
-        printf("[WARN] pmem_write: invalid address 0x%08x (ignored)\n", addr);
-        return;
-    }
-    
+extern "C" void ram_trace_write(uint32_t addr, uint32_t data, uint8_t mask) {
     // 计算写入长度 (根据 mask)
     uint8_t len = 0;
     for (int i = 0; i < 4; i++) {
@@ -218,20 +122,67 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
     dtrace.log_write("MEM", addr, data, len);
 
     mtrace.write(addr, data, len, MTRACE_WRITE, g_current_pc, g_cycle);
+}
+
+// 保留原 PMEM 后端供对照；当前顶层使用 RAM.scala，不再实例化 PMEM。
+
+/***************************************************************************************
+ * pmem_read - 从普通内存读取 32 位数据
+ * 
+ * @param raddr: 读取的物理地址（会自动对齐到 4 字节边界）
+ * @return 读取到的 32 位数据；对于无效地址返回 0
+ * 
+ ***************************************************************************************/
+extern "C" uint32_t pmem_read(uint32_t raddr) {
+    uint32_t addr = raddr & ~0x3u;  // 对齐到 4 字节边界
+    
+    // -------- 普通内存访问 --------
+    if (!memory_contains(addr, 4)) {
+        // 流水线初始化阶段或非 Load 指令时可能读取无效地址，静默返回 0
+        return 0;
+    }
+    
+    uint32_t data = memory_read_word(addr);
+    
+    ram_trace_read(addr, data);
+
+    return data;
+}
+
+/***************************************************************************************
+ * pmem_write - 向普通内存写入数据
+ * 
+ * @param waddr: 写入的物理地址（会自动对齐到 4 字节边界）
+ * @param wdata: 要写入的 32 位数据
+ * @param wmask: 字节写掩码，每个 bit 对应 wdata 中的一个字节
+ *               例如 wmask=0x3 表示只写入最低 2 字节
+ ***************************************************************************************/
+extern "C" void pmem_write(int waddr, int wdata, char wmask) {
+    uint32_t addr = (uint32_t)waddr & ~0x3u;  // 对齐到 4 字节边界
+    uint32_t data = (uint32_t)wdata;
+    uint8_t mask = (uint8_t)wmask & 0x0F;
+
+    // 检查有效地址
+    if (!memory_contains(addr, 4)) {
+        printf("[WARN] pmem_write: invalid address 0x%08x (ignored)\n", addr);
+        return;
+    }
+    
+    ram_trace_write(addr, data, mask);
 
     memory_write_word(addr, data, mask);
 }
 
 /**
- * ebreak_handler - 处理 EBREAK 指令
- * 直接从 Verilator 内部信号读取 a0，不依赖 RegFileSync/cpu_regs[] 链路。
+ * ebreak_handler - 处理 EBREAK 指令. 
+ * 直接从 Verilator 内部信号读取 a0当退出码, 打印结果, 直接杀进程.
  */
 extern "C" void ebreak_handler() {
-    // 直接读取 Verilator 内部寄存器堆，与 DiffTest 开关无关
-    uint32_t exit_code = g_dut ? g_dut->rootp->AzazeRV__DOT__gprfile__DOT__regs_10 : 0;
+    uint32_t exit_code = g_dut ? g_dut->rootp->AzazeRV__DOT__gprfile__DOT__regs_10 : 0; // 直接读取 Verilator 内部寄存器堆读x10(a0)
     
-    printf("\n[INFO] Simulation ended after %lu cycles.\n", g_cycle);
+    printf("\n[INFO] Simulation ended after %lu cycles.\n", g_cycle);   //打印周期数
 
+    // 按 a0判断成败
     if (exit_code == 0) {
         printf("[INFO] HIT GOOD TRAP (a0 = 0)\n");
     } else {
@@ -247,5 +198,5 @@ extern "C" void ebreak_handler() {
         ftrace.display_ringbuf();
 #endif
     }
-    exit(exit_code);
+    exit(exit_code);    //调用C标准库函数. 在仿真器里调用它,效果就是整个 Verilator 仿真进程直接结束, shell 里 $? 拿到 exit_code
 }

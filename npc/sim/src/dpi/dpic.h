@@ -39,6 +39,10 @@ extern "C" uint32_t pmem_read(uint32_t raddr);
  */
 extern "C" void pmem_write(int waddr, int wdata, char wmask);
 
+// RAMTrace.sv 在实际 R/W 握手时调用；只记录访问，不读取或修改 RAM。
+extern "C" void ram_trace_read(uint32_t addr, uint32_t data);
+extern "C" void ram_trace_write(uint32_t addr, uint32_t data, uint8_t mask);
+
 /**
  * set_cpu_reg - 这是DPIC函数. 同步单个 GPR 寄存器值. 由硬件 RegFileSync每个周期调用
  * @param idx: 寄存器索引 (0-31)
@@ -85,14 +89,5 @@ void set_dut_ptr(VAzazeRV* dut);
  * 在仿真中检测到 EBREAK 时调用，读取 a0 (x10) 寄存器作为退出码
  */
 extern "C" void ebreak_handler();
-
-// ============ 外设初始化接口 ============
-
-/**
- * init_device - 初始化外设（串口、时钟等）
- * 
- * 【调用时机】在仿真开始前调用，记录系统启动时间
- */
-void init_device();
 
 #endif // __DPIC_H__

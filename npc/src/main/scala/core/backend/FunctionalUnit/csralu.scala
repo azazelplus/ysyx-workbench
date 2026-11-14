@@ -3,7 +3,7 @@ package azazerv.exu
 import chisel3._
 import _root_.core.CoreConfig
 import chisel3.util._
-import azazerv._
+import azazerv.idu.CSROp
 
 /**
   * CSR ALU - 负责 CSR 读写数据的位运算逻辑

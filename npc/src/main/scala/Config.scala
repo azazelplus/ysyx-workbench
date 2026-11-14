@@ -2,6 +2,7 @@ package core
 
 import chisel3._
 import chisel3.util._
+import bus.BusConfig
 
 
 /** 核心参数化配置类。
@@ -23,11 +24,15 @@ case class CoreConfig(
     // 功能开关
     hasRVM: Boolean = true,                           // 是否启用 RV32M 乘除法扩展
     enablePerfCnt: Boolean = false,                   // 预留：性能计数器开关
-    fastMul: Boolean = true                           // 是否使用快速乘法路径
+    fastMul: Boolean = true,                          // 是否使用快速乘法路径
+    axiIdBits: Int = 4                                // AXI4 事务 ID 位宽. 
 ) {
   // 断言检查. 目前仅支持RV32.
   require(dataBits == 32 && addrBits == 32 && physRegs == 32 && csrAddrBits == 12,
     "AzazeRV currently requires RV32 with 32 GPRs and 12-bit CSR addresses")
+
+  // CPU、互连与 RAM 复用这份总线宽度配置。
+  val bus: BusConfig = BusConfig(addrBits, dataBits, axiIdBits)
 
   val instBits: Int = 32                              // 指令位宽
   val wordSize: Int = dataBits / 8                    // 一个数据字包含的字节数，RV32 时为 4

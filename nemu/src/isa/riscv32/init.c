@@ -32,7 +32,7 @@ static const uint32_t img [] = {
   0xdeadbeef,  // some data
 };
 
-//初始化寄存器. 
+//初始化寄存器. consumer: init_isa()
 static void restart() {
   /* Set the initial program counter. */
   cpu.pc = RESET_VECTOR;
@@ -40,7 +40,7 @@ static void restart() {
   /* The zero register is always 0. */
   cpu.gpr[0] = 0;
 
-  /* 初始化mstatus for difftest (MPP=11, FS=00) */
+  /* 初始化mstatus for difftest. MPP=11(M-mode特权级), FS=00(浮点单元off) */
   cpu.mstatus = 0x1800;
 }
 

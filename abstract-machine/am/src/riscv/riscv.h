@@ -9,7 +9,7 @@
 //   读取计时器值：    uint32_t time = inl(RTC_ADDR);
 //   向串口写字符：    outb(SERIAL_PORT, 'A');
 
-// in*() 函数族：从指定地址读取数据
+// in*() 函数族：从指定地址读取数据. in/out是站在cpu角度的. 外设->cpu为in, 要读; cpu->外设为out, 要写.
 //   - inb: Input Byte   - 读取 8 位数据 (1 字节)
 //   - inw: Input Word   - 读取 16 位数据 (2 字节)
 //   - inl: Input Long   - 读取 32 位数据 (4 字节)

@@ -14,30 +14,30 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include "cpu.h"
-#include "dpic.h"
-#include "sdb.h"
+#include "cpu/cpu.h"
+#include "dpi/dpic.h"
+#include "monitor/sdb/sdb.h"
 #include "trace/ftrace.h"
 #include "trace/mtrace.h"
 #include "trace/itrace.h"
-#include "difftest.h"
-#include "memory.h"
+#include "cpu/difftest/difftest.h"
+#include "memory/memory.h"
 
-// ===================== sim主函数 =======================
+// sim主函数
 int main(int argc, char** argv) {
     // 默认配置
     const char *img_file = NULL;
     const char *elf_file = NULL;
     uint64_t max_cycles = DEFAULT_MAX_CYCLES;
 
-    // 解析命令行参数
+    // 解析命令行参数.
+    // 当前定义有效选项: 
     static struct option long_options[] = {
         {"help",    no_argument,       0, 'h'},
         {"elf",     required_argument, 0, 'e'},
         {"cycles",  required_argument, 0, 'c'},
         {0, 0, 0, 0}
     };
-
     int opt;
     int option_index = 0;
     while ((opt = getopt_long(argc, argv, "he:c:", long_options, &option_index)) != -1) {
@@ -62,17 +62,12 @@ int main(int argc, char** argv) {
     }
 
     // 获取命令行参数提供的镜像客户程序, 如果有的话
-    if (optind < argc) {
+    if (optind < argc) //optind: getopt()库函数提供的全局变量. 下一个要处理的命令行参数下标.
+    {
         img_file = argv[optind];
     } else {
         printf("[ERROR] No image file specified!\n");
         printf("Usage: %s [options] <program.bin>\n", argv[0]);
-        return 1;
-    }
-
-    // 加载程序
-    ProgramImage image{};
-    if (!memory_load_image(img_file, image)) {
         return 1;
     }
 
@@ -98,6 +93,13 @@ int main(int argc, char** argv) {
     // 设置最大周期数并初始化 CPU
     cpu_set_max_cycles(max_cycles);
     cpu_init(argc, argv);
+
+    // CPU 和 RAM 已创建并复位，直接把 .bin 装入 RAM。
+    ProgramImage image{};
+    if (!memory_load_image(img_file, image)) {
+        cpu_exit();
+        return 1;
+    }
 
     // 当前镜像的入口位于首字节；从硬件读取复位地址，检查两侧是否匹配。
     const uint32_t reset_pc = cpu_get_reset_pc();

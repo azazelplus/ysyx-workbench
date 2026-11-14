@@ -100,7 +100,6 @@ static SDL_Texture *texture = NULL;
 /**
  * init_screen - 初始化 SDL 窗口 (仅宿主为 Linux/Windows 时)
  * 
- * 【功能】
  * 调用 SDL 库创建窗口、渲染器和纹理，为显示做准备。
  * 并设置窗口标题为 "riscv32-NEMU" 等。
  **/
@@ -120,9 +119,9 @@ static void init_screen() {
 }
 
 /**
- * update_screen - 刷新 SDL 屏幕内容.(将 vmem 中的显存数据纹理化，并复制到 SDL 渲染器，最终呈现到窗口。) 调库, 不看了. 
+ * update_screen - 刷新 SDL 屏幕内容.(将 vmem 中的显存数据纹理化，并复制到 SDL 渲染器，最终呈现到窗口.) 总之是调库...
  *  
- * 调用层级: device_update()调用vga_update_screen(), 后者在检查到sync寄存器非0时调用update_screen().
+ * consumer: vga_update_screen()在检查到sync寄存器非0时调用.
  **/
 static inline void update_screen() {
   SDL_UpdateTexture(texture, NULL, vmem, SCREEN_W * sizeof(uint32_t));
@@ -150,8 +149,7 @@ static inline void update_screen() {
 
 /**
  * vga_update_screen - 检查并处理屏幕刷新同步信号. 在检查到sync寄存器非0时调用update_screen().
- * 
- * 调用层级: device_update()调用vga_update_screen().
+ * consumer: device_update()
  **/
 void vga_update_screen() {
   // 当 sync 寄存器非零时调用 update_screen()，然后将 sync 寄存器清零
@@ -164,7 +162,7 @@ void vga_update_screen() {
 
 /**
  * init_vga - 初始化 VGA 设备
- * 
+ * consumer: init_device()
  * 【功能】
  * 1. 分配 VGA 控制寄存器空间 (vgactl)。
  * 2. 根据 CONFIG_VGA_SIZE宏 初始化屏幕宽高信息寄存器。

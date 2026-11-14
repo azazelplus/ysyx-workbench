@@ -5,6 +5,7 @@ import chisel3._
 import _root_.core.{CoreConfig, ALU, MDU}
 import chisel3.util._
 import azazerv._
+import azazerv.idu.{ALUFunction, ALUSrc1, ALUSrc2, BranchOp}
 
 /**
   * EXU - 执行单元
@@ -134,7 +135,8 @@ class EXU(implicit val cfg: CoreConfig) extends Module {
   io.out.bits.rd_addr    := in.rd_addr
   io.out.bits.mem_wen    := in.mem_wen
   io.out.bits.mem_ren    := in.mem_ren
-  io.out.bits.mem_op     := in.mem_op
+  io.out.bits.mem_size   := in.mem_size
+  io.out.bits.load_unsigned := in.load_unsigned
   io.out.bits.reg_wen    := in.reg_wen
 
   // ====================  握手逻辑 ====================

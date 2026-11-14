@@ -334,7 +334,6 @@ do {
   csr_write(csr_addr, src1);                  // 写CSR寄存器, 新值来自rs1
   R(rd) = t;                              // 将旧值写回目的寄存器rd
   */
-
   // csrrw  rd, csr, rs1 :  t=CSR[csr]; CSR[csr]=rs1;  rd=t
   INSTPAT("??????? ????? ????? 001 ????? 11100 11", csrrw  , I, word_t csr_addr = BITS(s->isa.inst.val, 31, 20); word_t t = csr_read(csr_addr); csr_write(csr_addr, src1); R(rd) = t);
   // csrrs  rd, csr, rs1 :  t=CSR[csr]; CSR[csr]=t|rs1; rd=t

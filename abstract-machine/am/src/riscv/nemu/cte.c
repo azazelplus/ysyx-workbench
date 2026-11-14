@@ -6,7 +6,7 @@ am代码提供运行时环境, 参与编译客户程序最后编译成的image�
 #include <riscv/riscv.h>
 #include <klib.h>
 
-//声明一下user_handler函数指针, 它是cte的事件处理函数. 初始化为NULL, 用户程序有责任通过调用cte_init(用户提供的事件处理函数)来让user_handler=用户提供的事件处理函数, 这就叫完成了"用户处理函数注册". Context结构体在架构头文件am/include/arch/riscv.h中定义.
+// 全局事件处理函数指针. 初始化为NULL, 用户程序有责任通过调用cte_init(用户提供的事件处理函数)来让user_handler=用户提供的事件处理函数, 这就叫完成了"用户处理函数注册". Context结构体在架构头文件am/include/arch/riscv.h中定义.
 static Context* (*user_handler)(Event, Context*) = NULL;
 
 
@@ -24,17 +24,17 @@ Context* __am_irq_handle(Context *c) {
       //如果是interrupt
       switch (mcause & ~mask) {
         case 7: {
-          // TODO: handle machine timer interrupt if needed
+
           ev.event = EVENT_IRQ_TIMER;
           break;
         }
         case 11: {
-          // TODO: handle machine external interrupt if needed
+
           ev.event = EVENT_IRQ_IODEV;
           break;
         }
         default: {
-          // TODO: add more interrupt sources here when needed
+
           ev.event = EVENT_ERROR;
           break;
         }
@@ -45,7 +45,7 @@ Context* __am_irq_handle(Context *c) {
         case 8:  // ecall from U-mode
         case 9:  // ecall from S-mode
         case 11: { // ecall from M-mode
-          // TODO: split by privilege level if needed
+
           if ((intptr_t)c->GPR1 == -1) ev.event = EVENT_YIELD;
           else ev.event = EVENT_SYSCALL;
           c->mepc += 4; // 对于ecall异常, 需要mepc+4软件跳过. 否则mret回去又会执行一遍ecall, 陷入死循环.
@@ -71,13 +71,14 @@ extern void __am_asm_trap(void);  // __am_asm_trap在trap.S中定义. 职责是�
 
 
 /** 
-cte_init函数, 给user_handler空函数句柄注册为handler函数. 用户程序需要"在事件发生时"调用它, 注册自己的事件处理函数.
+cte_init函数, 给user_handler空函数句柄注册为handler函数. 
+consumer: 客户程序. 需要在事件发生前调用它, 注册自己的事件处理函数.
 * @param handler "用户程序"提供的事件处理函数指针. 中断/异常时, 函数__am_irq_handle()会调用这个handler函数来处理事件.
 *                handler接收一个Event(事件类型)和Context(当前上下文), 返回下一个要切换到的Context.
 */
 bool cte_init(Context*(*handler)(Event, Context*)) {
-  // initialize exception entry
-  asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
+  // 将__am_asm_trap的地址写入mtvec, 准备跳转.
+  asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));  // trap.S
   // register event handler
   user_handler = handler;
   return true;
@@ -85,8 +86,9 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
 
 
 /**
- * kcontext() - 在指定栈空间(nemu模拟器拥有的虚拟内存的一段地址)创建内核线程的初始上下文, 并设置sp在栈顶.
- * 在指定的栈空间上创建一个新的上下文，使得当调度器(对yield-os就是schedule函数)切换到这个上下文时, CPU 会从 entry 函数开始执行，并传入 arg 作为参数。
+ * kcontext() - 在指定栈空间(nemu模拟器拥有的虚拟内存的一段地址)创建内核线程的初始上下文, 并设置这个上下文的sp在栈顶.
+ * 当调度器(对yield-os就是schedule函数)切换到这个上下文时, CPU 会从 entry 函数开始执行，并传入 arg 作为参数.
+ * consumer: 每个进程第一次调用
  * @param kstack: 内核栈的地址范围 (Area.start = 栈底, Area.end = 栈顶, 是一个Area结构体(二元数组).)
  * @param entry:  线程入口函数指针
  * @param arg:    传递给入口函数的参数
@@ -101,7 +103,6 @@ bool cte_init(Context*(*handler)(Event, Context*)) {
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg) {
   // 在栈顶(stack向下生长, kstack.end是地址最高位)预留 Context 结构体空间（栈从高地址向低地址增长）
   Context *c = (Context*)kstack.end - 1;  //指针减法, 减去一个Context结构体的大小, 让c指向这个预留的空间. 
-
   /**************************** 保存上下文 *****************************/
   c->mepc = (uintptr_t)entry;  // 设置程序计数器为入口函数地址
   c->mstatus = 0x1800;  // 设置机器态状态寄存器：0x1800 = 0b11000000000000, MPP (Machine Previous Privilege) 字段设为 11，表示返回到 Machine mode

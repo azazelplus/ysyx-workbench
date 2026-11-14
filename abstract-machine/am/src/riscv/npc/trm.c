@@ -40,7 +40,7 @@ int main(const char *args) {
 #include <klib-macros.h>
 #include "include/platform.h"
 
-// 堆区间定义.
+
 extern char _heap_start;
 int main(const char *args);     // 声明main函数(). 因为要在下面的_trm_init()函数中调用main.
 

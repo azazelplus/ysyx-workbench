@@ -1,9 +1,5 @@
 # riscv32-npc.mk - 使用标准 RV32I 指令集测试 npc
 
-# 与 minirv-npc.mk 的区别：
-#   - minirv: RV32E (16寄存器) + 软件乘除法 + minirv-gcc 工具链
-#   - riscv32: RV32I (32寄存器) + 标准 riscv64-linux-gnu 工具链
-
 include $(AM_HOME)/scripts/isa/riscv.mk
 include $(AM_HOME)/scripts/platform/npc.mk
 

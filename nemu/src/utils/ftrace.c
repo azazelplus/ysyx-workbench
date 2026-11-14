@@ -1,16 +1,7 @@
-/***************************************************************************************
+/**
  * ftrace.c 
- * 挂载点: 
- * 1.ftrace_init()在init_monitor()(monitor.c)中被调用. 加载ELF文件.
- * 2.exec_once()->trace_and_difftest()中调用ftrace_trace().
-
- * 3.
- * 
- * 功能：
- *   1. 解析 ELF 文件获取函数符号表
- *   2. 追踪 jal/jalr/ret 指令，记录函数调用/返回
- *   3. 环形缓冲区模式：程序异常时打印最近的函数调用链
- ***************************************************************************************/
+ * exec_once()->trace_and_difftest()中调用ftrace_trace().
+*/
 #include <common.h>   // CONFIG_FTRACE宏是common.h中定义的
 
 
@@ -23,7 +14,6 @@
 #include <string.h>
 
 // ============ 常量定义 ============
-
 #define FTRACE_MAX_SYMBOLS  4096   // 最多支持的函数符号数量
 #define FTRACE_MAX_NAME     128    // 函数名最大长度
 #ifdef CONFIG_FTRACE_RINGBUF
@@ -33,7 +23,6 @@
 #define FTRACE_MAX_DEPTH    64     // 最大调用深度（用于缩进）
 
 // ============ 数据结构 ============
-
 typedef struct {
   uint32_t addr;                    //函数起始地址(来自该符号结构体(Elf32_Sym)的.st_value成员)
   uint32_t size;                    //函数字节大小(来自st_size)
@@ -103,7 +92,7 @@ typedef struct {
 } FTraceEntry; //环形缓冲区中的一条记录.
 
 
-// ============ 全局状态 ============
+// 全局状态
 static FuncSymbol  symbols[FTRACE_MAX_SYMBOLS];   // 整个ELF文件的所有符号表数组. 其中每个FuncSymbol结构体成员记录一个符号.
 static int         sym_count = 0;                 // 已加载的符号数量
 
@@ -117,16 +106,16 @@ static int call_depth = 0;            //当前调用深度
 
 
 
-// ============ ELF 解析函数 ============
+// ELF 解析函数. 
 /**
  * read_section - 从 ELF 文件中读取一个 section 的原始数据.
+ * consumer: parse_elf32(), parse_elf64()
  * 其实就是封装了 malloc + fseek + fread 的完整流程，
  * 失败时自动释放内存并返回 NULL，简化了调用方的错误处理。
  * 
  * @param fp     已打开且指针在文件开头的 FILE* 指针
  * @param offset 待读 section 相对文件开头的偏移字节数（来自 ELF header）
  * @param size   待读 section 的字节数（来自 ELF header 的 sh_size）
- * 
  * @return 指向堆分配数据的指针（调用者需手动 free）；读取失败返回 NULL
  */
 static void *read_section(FILE *fp, long offset, size_t size) {
@@ -143,8 +132,8 @@ static void *read_section(FILE *fp, long offset, size_t size) {
 }
 
 /**
- * parse_elf32 - 解析 32 位 ELF 文件的符号表
- * 
+ * parse_elf32 - 解析 32 位 ELF 文件的符号表.
+ * consumer: ftrace_init()
  * 从已打开的 ELF32 文件中读取 .symtab 和 .strtab section，
  * 提取所有 STT_FUNC 类型的符号，填充全局 symbols[] 数组。
  * 
@@ -251,17 +240,16 @@ static bool parse_elf64(FILE *fp) {
   return true;
 }
 
-// ============ 公开接口 ============
+// 公开接口
 
 /**
- * ftrace_init - 从 ELF 文件加载函数符号表. 包裹fopen(), parse_elf32()
- * 
+ * ftrace_init - 从 ELF 文件加载函数符号表. 
+ * consumer: monitor.c:init_monitor()
  * 这是 ftrace 的初始化函数，应在程序启动时由 monitor.c 调用（通过 --elf 参数传入）。
  * 函数会按以下顺序尝试解析：先 ELF32，失败则尝试 ELF64。
  * 成功加载后会打印符号数量到标准输出，失败则打印错误信息。
  * 
  * @param elf_path ELF 文件的完整路径；为 NULL 或空串时直接返回（不加载任何符号）
- * 
  * @return 无返回值（void），成功/失败状态通过 printf 输出
  */
 void ftrace_init(const char *elf_path) {
@@ -288,7 +276,7 @@ void ftrace_init(const char *elf_path) {
   }
 }
 
-// ftrace_find_func 仅在环形缓冲区或全量日志至少一个启用时才会被调用
+// ftrace_find_func 仅在环形缓冲区或全量日志启用时才会被调用
 #if defined(CONFIG_FTRACE_RINGBUF) || defined(CONFIG_FTRACE_LOG)
 /**
  * ftrace_find_func - 根据地址查找函数名
@@ -297,7 +285,6 @@ void ftrace_init(const char *elf_path) {
  * 符号存储为 [addr, addr+size) 的开区间，查找使用 addr <= query < addr+size。
  * 
  * @param addr 待查询的地址（通常是 jal/jalr 指令的跳转目标）
- * 
  * @return 找到的函数名指针（指向 symbols 数组中的 name 字段）；
  *         未找到返回 "<unknown>" 的静态字符串
  */
@@ -311,7 +298,8 @@ static const char* ftrace_find_func(uint32_t addr) {
 }
 #endif // CONFIG_FTRACE_RINGBUF || CONFIG_FTRACE_LOG
 
-// ftrace_format 仅在环形缓冲区或全量日志至少一个启用时才会被调用
+
+// ftrace_format 仅在环形缓冲区或全量日志启用时才会被调用
 #if defined(CONFIG_FTRACE_RINGBUF) || defined(CONFIG_FTRACE_LOG)
 /**
  * ftrace_format - 格式化一条 ftrace 记录为可打印的字符串
@@ -348,7 +336,7 @@ static void ftrace_format(char *buf, size_t size, const FTraceEntry *e) {
 
 /**
  * ftrace_trace - 追踪一条指令，识别 call/ret. 
- * 
+ * consumer: cpu-exec.c: ftrac
  * 这是 ftrace 的核心追踪函数，应在每条指令执行后由 cpu-exec.c 调用。
  * 函数会解码当前指令的 opcode、rd、rs1，判断是 jal/jalr/其他
  * 若是函数调用则 call_depth++，若是函数返回则 call_depth--，

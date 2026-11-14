@@ -4,6 +4,7 @@ package azazerv
 import chisel3._
 import _root_.core.CoreConfig
 import chisel3.util._
+import azazerv.idu.{ALUFunction, ALUSrc1, ALUSrc2, MemSize}
 
 
 /**
@@ -32,19 +33,6 @@ object Opcode {
 }
 
 /**
-  * CSR 操作类型 的 funct3 字段
-  */
-object CSROp {
-  val RW  = "b001".U(3.W) //csrrw read/write
-  val RS  = "b010".U(3.W) //csrrs read/set
-  val RC  = "b011".U(3.W) //csrrc read/clear
-  //使用zimm字段的csr指令
-  val RWI = "b101".U(3.W) //csrrwi read/write immediate
-  val RSI = "b110".U(3.W) //csrrsi read/set immediate
-  val RCI = "b111".U(3.W) //csrrci read/clear immediate
-}
-
-/**
   * CSR 地址表
   */
 object CSRAddr {
@@ -59,33 +47,7 @@ object CSRAddr {
 }
 
 
-object ALUFunction extends ChiselEnum {
-  // 基础整数 ALU + M 扩展操作码。
-  // 其中 M 扩展由 EXU 路由到 MDU 执行，ALU 本体只实现基础整数运算。
-  val zero, add, sub, sll, slt, sltu, xor, srl, sra, or, and,
-      mul, mulh, mulhsu, mulhu, div, divu, rem, remu = Value
-}
-
-
-// ALU 输入操作数选择
-object ALUSrc1 extends ChiselEnum {
-  val rs1, pc, zero = Value
-}
-object ALUSrc2 extends ChiselEnum {
-  val rs2, imm, four = Value
-}
-
-/**
-  * 分支操作类型 (funct3)
-  */
-object BranchOp {
-  val BEQ  = "b000".U(3.W)  // 相等
-  val BNE  = "b001".U(3.W)  // 不相等
-  val BLT  = "b100".U(3.W)  // 有符号小于
-  val BGE  = "b101".U(3.W)  // 有符号大于等于
-  val BLTU = "b110".U(3.W)  // 无符号小于
-  val BGEU = "b111".U(3.W)  // 无符号大于等于
-}
+// 流水线接口引用的控制码统一定义在 core/idu/idu.scala，随指令传递到消费阶段。
 
 /**
   * IFU -> IDU 接口
@@ -129,7 +91,8 @@ class ID2EX(implicit val cfg: CoreConfig) extends Bundle {
   // 访存控制
   val mem_wen = Bool()                    // 内存写使能, =is_store
   val mem_ren = Bool()                    // 内存读使能, =is_load
-  val mem_op  = UInt(3.W)                 // 内存操作类型 (funct3: lw/lbu/sw/sb)
+  val mem_size = MemSize()               // 访问宽度：byte / half / word
+  val load_unsigned = Bool()             // Load 使用零扩展；否则符号扩展
 
   // 控制流
   val is_branch = Bool()                  // 是否为分支指令
@@ -156,9 +119,10 @@ class EX2LS(implicit val cfg: CoreConfig) extends Bundle {
   val alu_result = UInt(cfg.dataBits.W)    // ALU 计算结果
   val store_data = UInt(cfg.dataBits.W)    // Store 写入数据（来自 rs2，经旁路后透传到 MEM 阶段）
   val rd_addr    = UInt(cfg.regAddrBits.W)  // 目标寄存器地址
-  val mem_wen    = Bool()
-  val mem_ren    = Bool()
-  val mem_op     = UInt(3.W)              // 内存操作类型 (funct3)
+  val mem_wen    = Bool()   // 内存写使能
+  val mem_ren    = Bool()   // 内存读使能
+  val mem_size   = MemSize()              // 透传 IDU 生成的访存宽度
+  val load_unsigned = Bool()             // 透传 IDU 生成的 Load 扩展方式
   val reg_wen    = Bool()
 }
 

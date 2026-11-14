@@ -5,14 +5,17 @@
  ***************************************************************************************/
 
 #include "config.h"
-#include "cpu.h"
-#include "dpic.h"
+#include "cpu/cpu.h"
+#include "dpi/dpic.h"
+#include "device/device.h"
+#include "memory/ram.h"
+#include "memory/memory.h"
 #include "utils/disasm.h"
 #include "trace/itrace.h"
 #include "trace/mtrace.h"
 #include "trace/ftrace.h"
 #include "trace/dtrace.h"
-#include "difftest.h"
+#include "cpu/difftest/difftest.h"
 
 #include "verilated.h"
 #include "verilated_vcd_c.h"
@@ -74,6 +77,12 @@ void cpu_init(int argc, char** argv) {
     
     // 复位
     cpu_reset();
+
+    // 首次 eval/复位完成后绑定 RAM，随后 main.cpp 装载镜像再开始执行。
+    if (!ram_bind(dut)) {
+        cpu_exit();
+        exit(1);
+    }
     
     cpu_state = CPU_RUNNING;
 }
@@ -191,6 +200,7 @@ void cpu_exit() {
     }
     
     if (dut) {
+        memory_unbind_ram();
         delete dut;
         dut = nullptr;
     }

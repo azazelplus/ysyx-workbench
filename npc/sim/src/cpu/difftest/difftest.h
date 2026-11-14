@@ -27,7 +27,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include "memory.h"
+#include "memory/memory.h"
 
 // ============ REF 动态库路径 ============
 // 默认使用 nemu 作为 REF，编译为动态库

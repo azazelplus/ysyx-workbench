@@ -8,7 +8,7 @@ static unsigned long int next = 1;
 
 // nemu的.ld分配中, heap处于内存的末尾.也就是其他section分配完后的剩余位置起点(4KB对齐后)作为_heap_start.
 // addr 充当堆的"break"指针(或程序断点).
-// 它跟踪下一个空闲内存块的起始地址. 或者说, 它是堆顶.
+// 它跟踪下一个空闲内存块的起始地址. 或者说, 它是堆顶,也是分配游标.
 // 初始为NULL, 首次调用malloc时将被设置为heap.start.
 static void *addr = NULL;
 
